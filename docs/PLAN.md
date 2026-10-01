@@ -13,7 +13,7 @@ Phase order: 0 → 1 + 2 → 3 → 4.
   - a pre-commit hook (e.g. gitleaks),
   - a CI job running the same check on every PR.
 - [ ] `LICENSE`. **(owner)** chooses the license (see Decisions).
-- [ ] `README.md` skeleton: goal, architecture overview, how to run (filled in as phases land)
+- [x] `README.md` skeleton: goal, architecture overview, how to run (filled in as phases land)
 - [ ] Branch protection on `main`, requiring a PR and CI to pass. **(owner)**
 - [x] `CLAUDE.md` and `docs/PLAN.md` committed
 - [ ] Toolchain pinned in `.tool-versions` (asdf format). Chatham cloud sandboxes install the toolchain from it, so it is useful even before cloud agents are used.
