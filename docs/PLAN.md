@@ -6,6 +6,26 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 
 ---
 
+## Where we left off (updated 2026-10-01)
+
+**Done:** Phase 0 hygiene except the Chatham items: `CLAUDE.md` and this plan, `.gitignore`, gitleaks secret scanning (local hook plus CI), `.tool-versions` (golang 1.27.1, gitleaks 8.30.1, promtool 3.15.0), Apache-2.0 license, README skeleton, branch protection on `main` (ruleset `initial`: PR required, squash only, `gitleaks` check required, no force-push or deletion, no bypass).
+
+**Blocked on the owner:**
+- Agent Chatham setup and its test run (see "Registering a local agent" below).
+- D10, D11, D12 (agent credentials, isolation, reviewer model).
+- D1-D6 (SLIs, targets, window, buckets, burn-rate alerts). They gate the SLO-tied parts of Phases 1 and 2.
+
+**How to continue in the next session**
+1. Read `CLAUDE.md` and this file, then `git switch main && git pull`.
+2. If the owner wants to work on SLO decisions first: walk through D1-D6 one at a time. Explain SLI, SLO, error budget, burn rate and multi-window alerting in plain terms, give a recommendation with trade-offs, and record each answer in the Decisions table and decision log. Never decide them on the owner's behalf.
+3. If the owner has decided D10-D12 and prepared the isolated machine: record the decisions, then draft the first Chatham brief (the Phase 0 test run) from the brief template.
+4. Otherwise the next task that needs no decisions is the **Phase 1 service skeleton** (Go module, HTTP server, `/healthz`, `/metrics` with process metrics only, tests, no SLO-tied histogram yet). Propose a plan first and wait for approval, as always.
+5. Update this section at the end of every session.
+
+**Machine notes (owner's Mac, checked 2026-10-01):** `gh` 2.102.0 in `~/.local/bin`, `gitleaks` 8.30.1 in `~/.local/bin`, git configured for `salemax`, hook enabled with `git config core.hooksPath .githooks`. Not installed: Node/npm, Docker, asdf, Homebrew. System Python is 3.9.6, too old for `pre-commit` 4.6.2.
+
+---
+
 ## Phase 0: Repository hygiene
 
 - [x] `.gitignore` covering Go, Node, macOS, `.env*`, kubeconfigs and local data volumes
@@ -124,6 +144,23 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 4. Reviewer posts review comments and questions.
 5. Owner answers the questions, then merges.
 
+### Registering a local agent
+
+Seen in the Agent Chatham UI ("Add a Local Agent"), 2026-10-01:
+
+- Install the CLI: `npm i -g @agentchatham/cli` (needs Node.js 20+). Do this on the **isolated machine**, not the owner's Mac.
+- The form takes a first name, a last name and a model. Harness tabs: Claude, Codex, OpenCode. Claude models offered: Opus 5.5, Fable 5.1, Opus 5, Sonnet 5.
+- The UI then shows one command to run once on the agent's machine: `agentchatham register "<id>" --harness claude --model <model> --fn "<first>" --ln "<last>"`.
+- The `<id>` in that command is an account or workspace identifier. Treat it as private: never put it in this repo, a PR or an issue.
+
+Before registering anything:
+
+1. **Isolation (D11):** local agents have no sandbox and act with the credentials of the machine they run on. On the owner's Mac that includes the `gh` login (`repo` and `workflow` scope on `salemax`). Use a separate VM or container with its own, minimal GitHub credentials. `CLAUDE.md` forbids pushing to `main`, but the real barrier is the `main` ruleset.
+2. **Credentials (D10):** decide API key with spend limit versus Pro login.
+3. **Reviewer (D12):** Codex or OpenCode as a second family is the stronger review. Two Claude agents with different roles is cheaper.
+
+Suggested starting point (the owner decides): author `Sonnet 5` for routine work, reviewer on a different model or family.
+
 ### Brief template
 
 ```
@@ -182,3 +219,4 @@ Append-only. Format: `YYYY-MM-DD — decision — reason`.
 - 2026-10-01 — `.tool-versions` pins only golang, gitleaks and promtool for now — tools for Phases 3 and 4 (Node/Yarn, helm, kind, kubectl) are pinned when those phases start, after checking their requirements.
 - 2026-10-01 — License: Apache-2.0 (D7) — matches the ecosystem the repo builds on (Backstage, Prometheus, Kubernetes, Helm) and adds an explicit patent grant over MIT.
 - 2026-10-01 — Branch protection on `main` is a ruleset: PR required, squash merge only, `gitleaks` check required, no deletion or force-push, no bypass actors.
+- 2026-10-01 — Session handoff section added to the top of this plan — sessions expire, and the next session must know the status, blockers and first steps without chat history.
