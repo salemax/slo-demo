@@ -16,7 +16,7 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 - [x] `README.md` skeleton: goal, architecture overview, how to run (filled in as phases land)
 - [ ] Branch protection on `main`, requiring a PR and CI to pass. **(owner)**
 - [x] `CLAUDE.md` and `docs/PLAN.md` committed
-- [ ] Toolchain pinned in `.tool-versions` (asdf format). Chatham cloud sandboxes install the toolchain from it, so it is useful even before cloud agents are used.
+- [x] Toolchain pinned in `.tool-versions` (asdf format). Chatham cloud sandboxes install the toolchain from it, so it is useful even before cloud agents are used.
 - [ ] Agent Chatham setup **(owner)**:
   - account on the free plan,
   - Chatham GitHub App installed on **this repo only**,
@@ -179,3 +179,4 @@ Append-only. Format: `YYYY-MM-DD — decision — reason`.
 - 2026-10-01 — Agents work only via feature branches and PRs; the owner merges — keeps every decision reviewed and explainable.
 - 2026-10-01 — Phases 1 and 2 run on the Agent Chatham free plan with two local agents (author + reviewer) — the review loop works on the free plan, and cloud sandboxes are not needed yet.
 - 2026-10-01 — One active agent task at a time — Claude Pro limits are shared with claude.ai chat.
+- 2026-10-01 — `.tool-versions` pins only golang, gitleaks and promtool for now — tools for Phases 3 and 4 (Node/Yarn, helm, kind, kubectl) are pinned when those phases start, after checking their requirements.
