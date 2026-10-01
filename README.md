@@ -61,6 +61,19 @@ Filled in as each phase lands. The final goal is that a fresh clone can bring up
 | 3: Backstage | _coming with Phase 3_ |
 | 4: kind deployment | _coming with Phase 4_ |
 
+## Secret scanning
+
+The repo is public, so commits are scanned for secrets with [gitleaks](https://github.com/gitleaks/gitleaks) v8.30.1, locally and in CI.
+
+Once per clone:
+
+```
+# install gitleaks 8.30.1 (macOS arm64 shown; pick your platform from the release page and verify its checksum)
+git config core.hooksPath .githooks
+```
+
+The hook in `.githooks/pre-commit` blocks a commit that contains a secret. CI (`.github/workflows/secret-scan.yml`) runs the same gitleaks version on every pull request.
+
 ## Contributing and conventions
 
 Work happens on short-lived branches and pull requests. Conventions for people and AI agents are in [`CLAUDE.md`](CLAUDE.md).

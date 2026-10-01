@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Blocks commits that contain secrets. Runs the same gitleaks version as CI
+# (.github/workflows/secret-scan.yml). Enable once per clone:
+#   git config core.hooksPath .githooks
+set -euo pipefail
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-commit: gitleaks is not installed, see README (Secret scanning)." >&2
+  exit 1
+fi
+
+# --redact keeps the secret itself out of the terminal and shell history.
+exec gitleaks git --pre-commit --staged --redact --verbose
