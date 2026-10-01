@@ -8,7 +8,7 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 
 ## Phase 0: Repository hygiene
 
-- [ ] `.gitignore` covering Go, Node, macOS, `.env*`, kubeconfigs and local data volumes
+- [x] `.gitignore` covering Go, Node, macOS, `.env*`, kubeconfigs and local data volumes
 - [ ] Secret scanning:
   - a pre-commit hook (e.g. gitleaks),
   - a CI job running the same check on every PR.
