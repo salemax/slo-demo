@@ -80,4 +80,4 @@ Work happens on short-lived branches and pull requests. Conventions for people a
 
 ## License
 
-Not chosen yet (open decision D7 in [`docs/PLAN.md`](docs/PLAN.md)).
+Copyright 2026 Sasa Maksimovic. Licensed under the Apache License, Version 2.0. See [`LICENSE`](LICENSE).
