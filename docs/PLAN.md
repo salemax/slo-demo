@@ -12,9 +12,9 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 - [x] Secret scanning:
   - a pre-commit hook (e.g. gitleaks),
   - a CI job running the same check on every PR.
-- [ ] `LICENSE`. **(owner)** chooses the license (see Decisions).
+- [x] `LICENSE`. **(owner)** chooses the license (see Decisions).
 - [x] `README.md` skeleton: goal, architecture overview, how to run (filled in as phases land)
-- [ ] Branch protection on `main`, requiring a PR and CI to pass. **(owner)**
+- [x] Branch protection on `main`, requiring a PR and CI to pass. **(owner)**
 - [x] `CLAUDE.md` and `docs/PLAN.md` committed
 - [x] Toolchain pinned in `.tool-versions` (asdf format). Chatham cloud sandboxes install the toolchain from it, so it is useful even before cloud agents are used.
 - [ ] Agent Chatham setup **(owner)**:
@@ -163,7 +163,7 @@ Agents: if a task depends on a `TBD` row, stop and ask.
 | D4 | Compliance window (rolling vs calendar, length) | TBD | open |
 | D5 | Histogram bucket boundaries (must include D2 threshold) | TBD | open |
 | D6 | Burn-rate alert windows and thresholds | TBD | open |
-| D7 | License | TBD | open |
+| D7 | License | Apache-2.0 | decided 2026-10-01 |
 | D8 | Backstage plugin architecture | TBD | open |
 | D9 | Load generator tool | TBD | open |
 | D10 | Credentials for Chatham agents. Options: API key with a spend limit (safest), or Pro login (grey zone under Anthropic's terms). Cloud agents must use an API key. | TBD | open |
@@ -180,3 +180,5 @@ Append-only. Format: `YYYY-MM-DD — decision — reason`.
 - 2026-10-01 — Phases 1 and 2 run on the Agent Chatham free plan with two local agents (author + reviewer) — the review loop works on the free plan, and cloud sandboxes are not needed yet.
 - 2026-10-01 — One active agent task at a time — Claude Pro limits are shared with claude.ai chat.
 - 2026-10-01 — `.tool-versions` pins only golang, gitleaks and promtool for now — tools for Phases 3 and 4 (Node/Yarn, helm, kind, kubectl) are pinned when those phases start, after checking their requirements.
+- 2026-10-01 — License: Apache-2.0 (D7) — matches the ecosystem the repo builds on (Backstage, Prometheus, Kubernetes, Helm) and adds an explicit patent grant over MIT.
+- 2026-10-01 — Branch protection on `main` is a ruleset: PR required, squash merge only, `gitleaks` check required, no deletion or force-push, no bypass actors.
