@@ -6,19 +6,20 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 
 ---
 
-## Where we left off (updated 2026-10-01)
+## Where we left off (updated 2026-10-03)
 
 **Done:** Phase 0 hygiene except the Chatham items: `CLAUDE.md` and this plan, `.gitignore`, gitleaks secret scanning (local hook plus CI), `.tool-versions` (golang 1.27.1, gitleaks 8.30.1, promtool 3.15.0), Apache-2.0 license, README skeleton, branch protection on `main` (ruleset `initial`: PR required, squash only, `gitleaks` check required, no force-push or deletion, no bypass).
 
+**Chatham decisions made (2026-10-03):** D10 Pro token, D11 Docker container on the owner's Mac, D12 two Claude agents. Container definition and run instructions are in `docs/chatham/`.
+
 **Blocked on the owner:**
-- Agent Chatham setup and its test run (see "Registering a local agent" below).
-- D10, D11, D12 (agent credentials, isolation, reviewer model).
+- Chatham manual steps: install a container runtime, build the image, create the tokens, register both agents, then run the test brief (see `docs/chatham/README.md`).
 - D1-D6 (SLIs, targets, window, buckets, burn-rate alerts). They gate the SLO-tied parts of Phases 1 and 2.
 
 **How to continue in the next session**
 1. Read `CLAUDE.md` and this file, then `git switch main && git pull`.
 2. If the owner wants to work on SLO decisions first: walk through D1-D6 one at a time. Explain SLI, SLO, error budget, burn rate and multi-window alerting in plain terms, give a recommendation with trade-offs, and record each answer in the Decisions table and decision log. Never decide them on the owner's behalf.
-3. If the owner has decided D10-D12 and prepared the isolated machine: record the decisions, then draft the first Chatham brief (the Phase 0 test run) from the brief template.
+3. If the owner has the container running and both agents registered: draft the first Chatham brief (the Phase 0 test run) from the brief template.
 4. Otherwise the next task that needs no decisions is the **Phase 1 service skeleton** (Go module, HTTP server, `/healthz`, `/metrics` with process metrics only, tests, no SLO-tied histogram yet). Propose a plan first and wait for approval, as always.
 5. Update this section at the end of every session.
 
@@ -203,9 +204,9 @@ Agents: if a task depends on a `TBD` row, stop and ask.
 | D7 | License | Apache-2.0 | decided 2026-10-01 |
 | D8 | Backstage plugin architecture | TBD | open |
 | D9 | Load generator tool | TBD | open |
-| D10 | Credentials for Chatham agents. Options: API key with a spend limit (safest), or Pro login (grey zone under Anthropic's terms). Cloud agents must use an API key. | TBD | open |
-| D11 | Isolation for local agents (which VM/container; does it need Docker for compose verification?) | TBD | open |
-| D12 | Second model for review (Codex/OpenCode) or two Claude agents with different roles | TBD | open |
+| D10 | Credentials for Chatham agents. Options: API key with a spend limit (safest), or Pro login (grey zone under Anthropic's terms). Cloud agents must use an API key. | Pro token from `claude setup-token` | decided 2026-10-03 |
+| D11 | Isolation for local agents | Docker container on the owner's Mac (`docs/chatham/`); Docker for compose checks deferred to Phase 2 | decided 2026-10-03 |
+| D12 | Second model for review (Codex/OpenCode) or two Claude agents with different roles | Two Claude agents with different roles | decided 2026-10-03 |
 
 ## Decision log
 
@@ -220,3 +221,6 @@ Append-only. Format: `YYYY-MM-DD — decision — reason`.
 - 2026-10-01 — License: Apache-2.0 (D7) — matches the ecosystem the repo builds on (Backstage, Prometheus, Kubernetes, Helm) and adds an explicit patent grant over MIT.
 - 2026-10-01 — Branch protection on `main` is a ruleset: PR required, squash merge only, `gitleaks` check required, no deletion or force-push, no bypass actors.
 - 2026-10-01 — Session handoff section added to the top of this plan — sessions expire, and the next session must know the status, blockers and first steps without chat history.
+- 2026-10-03 — D10: Pro token via `claude setup-token` — owner wants to control cost. Accepted risks: Anthropic's terms for subscription tokens in third-party tools are unverified, and agent usage shares the Pro limits with chat.
+- 2026-10-03 — D11: local agents run in a Docker container, not on the Mac directly — they have no sandbox and would otherwise inherit the owner's `gh` login. GitHub access is a fine-grained token limited to this repo.
+- 2026-10-03 — D12: two Claude agents (author and reviewer) — cheaper than adding a second model family, at the cost of less independent review.
