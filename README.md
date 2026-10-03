@@ -76,7 +76,7 @@ The hook in `.githooks/pre-commit` blocks a commit that contains a secret. CI (`
 
 ## Contributing and conventions
 
-Work happens on short-lived branches and pull requests. Conventions for people and AI agents are in [`CLAUDE.md`](CLAUDE.md).
+Work happens on short-lived branches and pull requests. Conventions for people and AI agents are in [`CLAUDE.md`](CLAUDE.md). AI agents run in an isolated container rather than directly on the owner's machine; see [`docs/chatham/README.md`](docs/chatham/README.md) for the container setup.
 
 ## License
 
