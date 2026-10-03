@@ -6,24 +6,39 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 
 ---
 
-## Where we left off (updated 2026-10-03)
+## Where we left off (updated 2026-10-03, end of day)
 
-**Done:** Phase 0 hygiene except the Chatham items: `CLAUDE.md` and this plan, `.gitignore`, gitleaks secret scanning (local hook plus CI), `.tool-versions` (golang 1.27.1, gitleaks 8.30.1, promtool 3.15.0), Apache-2.0 license, README skeleton, branch protection on `main` (ruleset `initial`: PR required, squash only, `gitleaks` check required, no force-push or deletion, no bypass).
+**Done:** Phase 0 hygiene: `CLAUDE.md` and this plan, `.gitignore`, gitleaks secret scanning (local hook plus CI), `.tool-versions` (golang 1.27.1, gitleaks 8.30.1, promtool 3.15.0), Apache-2.0 license, README skeleton, branch protection on `main` (ruleset `initial`: PR required, squash only, `gitleaks` check required, no force-push or deletion, no bypass).
 
-**Chatham decisions made (2026-10-03):** D10 Pro token, D11 Docker container on the owner's Mac, D12 two Claude agents. Container definition and run instructions are in `docs/chatham/`.
+**Agent Chatham is set up and works (2026-10-03):**
+- D10 Pro token, D11 Docker container, D12 two Claude agents (author and reviewer, both Sonnet 5). Definition and run instructions: `docs/chatham/`.
+- Image `slo-demo-agent` built and checked (node 24.21.0, gh 2.102.0, Claude Code 2.1.288, `agentchatham` 3.17.0). Both agents registered, online, each in its own container and volume (`slo-demo-agent-author`, `slo-demo-agent-reviewer`).
+- Test run: the author opened **PR #10** (README one-liner), the reviewer reviewed it and posted 3 questions in the channel. **PR #10 is still open**: the owner answers the questions and merges it (the owner may ask the author to change "isolated" to "separate", optional).
+- Findings: agents open PRs and post reviews as `salemax` through `GH_TOKEN`, not as `agent-chatham[bot]` (so author, reviewer and owner look the same on GitHub). `CLAUDE_CODE_OAUTH_TOKEN` is the working variable name for the `setup-token` token. In a container, `agentchatham register` needs `AGENT_CHATHAM_KEY_SECRET` (no keychain). A failed register can leave a stale duplicate agent in the UI; delete the one that stays offline.
 
-**Blocked on the owner:**
-- Chatham manual steps: install a container runtime, build the image, create the tokens, register both agents, then run the test brief (see `docs/chatham/README.md`).
-- D1-D6 (SLIs, targets, window, buckets, burn-rate alerts). They gate the SLO-tied parts of Phases 1 and 2.
+**Still open:**
+- Owner: answer the reviewer's questions and merge PR #10. Then a small docs PR ticks the Phase 0 Chatham items below once the owner confirms the flow is complete.
+- Owner: D1-D6 (SLIs, targets, window, buckets, burn-rate alerts). They gate the SLO-tied parts of Phases 1 and 2.
+- Unverified: whether Anthropic's terms allow a Pro token in a third-party tool (accepted risk, see decision log). Owner should note the expiry date of the fine-grained GitHub token and renew it before then.
 
 **How to continue in the next session**
-1. Read `CLAUDE.md` and this file, then `git switch main && git pull`.
-2. If the owner wants to work on SLO decisions first: walk through D1-D6 one at a time. Explain SLI, SLO, error budget, burn rate and multi-window alerting in plain terms, give a recommendation with trade-offs, and record each answer in the Decisions table and decision log. Never decide them on the owner's behalf.
-3. If the owner has the container running and both agents registered: draft the first Chatham brief (the Phase 0 test run) from the brief template.
-4. Otherwise the next task that needs no decisions is the **Phase 1 service skeleton** (Go module, HTTP server, `/healthz`, `/metrics` with process metrics only, tests, no SLO-tied histogram yet). Propose a plan first and wait for approval, as always.
-5. Update this section at the end of every session.
+1. Read `CLAUDE.md` and this file, then `git switch main && git pull`. Check `gh pr list` for PR #10.
+2. If PR #10 is merged: open a small `docs/` PR ticking the two Chatham items in Phase 0 and noting the result.
+3. Then, owner's choice:
+   - **SLO decisions first:** walk through D1-D6 one at a time. Explain SLI, SLO, error budget, burn rate and multi-window alerting in plain terms, give a recommendation with trade-offs, and record each answer in the Decisions table and decision log. Never decide them on the owner's behalf.
+   - **Phase 1 service skeleton** (no decisions needed): Go module, HTTP server, `/healthz`, `/metrics` with process metrics only, tests, no SLO-tied histogram yet. Can be given to the author agent as a Chatham brief (stay in scope, one task at a time) or done in Claude Code. Propose a plan first and wait for approval, as always.
+4. Update this section at the end of every session.
 
-**Machine notes (owner's Mac, checked 2026-10-01):** `gh` 2.102.0 in `~/.local/bin`, `gitleaks` 8.30.1 in `~/.local/bin`, git configured for `salemax`, hook enabled with `git config core.hooksPath .githooks`. Not installed: Node/npm, Docker, asdf, Homebrew. System Python is 3.9.6, too old for `pre-commit` 4.6.2.
+**Restarting the agents** (they stop when their terminals close; the `--rm` containers are throwaway, the volumes keep the registration and clone). Each needs the exact start command from the Chatham UI ("Copy start command" on the agent row); it contains the agent's `dirName`. Shape:
+```sh
+export PATH="$HOME/.docker/bin:$PATH"
+docker run -it --rm --env-file ~/.config/slo-demo-agent.env \
+  -v slo-demo-agent-author:/home/node slo-demo-agent agentchatham run <dirName>
+# reviewer: --env-file ~/.config/slo-demo-reviewer.env and -v slo-demo-agent-reviewer:/home/node
+```
+Not verified: that the start command from the UI is identical to the one above, and that a restarted agent comes back online. Check at the start of the next session.
+
+**Machine notes (owner's Mac, 2026-10-03):** Docker Desktop 4.93.0 installed. Its CLI is not symlinked into `/usr/local/bin`, so `~/.docker/bin` must be on `PATH` (added to `~/.zshrc`). Secrets live only in `~/.config/slo-demo-agent.env` and `~/.config/slo-demo-reviewer.env` (mode 600, outside the repo). `gh` 2.102.0 and `gitleaks` 8.30.1 in `~/.local/bin`, git configured for `salemax`, hook enabled with `git config core.hooksPath .githooks`. Not installed: Node/npm, asdf, Homebrew (not needed yet). System Python is 3.9.6, too old for `pre-commit` 4.6.2.
 
 ---
 
@@ -224,3 +239,4 @@ Append-only. Format: `YYYY-MM-DD — decision — reason`.
 - 2026-10-03 — D10: Pro token via `claude setup-token` — owner wants to control cost. Accepted risks: Anthropic's terms for subscription tokens in third-party tools are unverified, and agent usage shares the Pro limits with chat.
 - 2026-10-03 — D11: local agents run in a Docker container, not on the Mac directly — they have no sandbox and would otherwise inherit the owner's `gh` login. GitHub access is a fine-grained token limited to this repo.
 - 2026-10-03 — D12: two Claude agents (author and reviewer) — cheaper than adding a second model family, at the cost of less independent review.
+- 2026-10-03 — Agents authenticate to GitHub with the owner's fine-grained `GH_TOKEN` (this repo only), not the Chatham GitHub App — observed in the test run, PR #10 appeared under `salemax`. Consequence: author, reviewer and owner share one GitHub identity; the `main` ruleset is the real barrier.
