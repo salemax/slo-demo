@@ -2,7 +2,7 @@
 
 A hands-on project for practising SLI/SLO/SLA engineering end to end: a small service that can be made to fail on demand, the monitoring that measures it against a service level objective, and the tooling that makes that visible to a team.
 
-> **Status:** early work in progress. Nothing is runnable yet. Progress and open decisions are tracked in [`docs/PLAN.md`](docs/PLAN.md).
+> **Status:** early work in progress. Only the Backstage scaffold is runnable so far (see [How to run](#how-to-run)). Progress and open decisions are tracked in [`docs/PLAN.md`](docs/PLAN.md).
 
 ## Goal
 
@@ -58,8 +58,31 @@ Filled in as each phase lands. The final goal is that a fresh clone can bring up
 |-------|--------------|
 | 1: service | _coming with Phase 1_ |
 | 2: monitoring stack | _coming with Phase 2_ |
-| 3: Backstage | _coming with Phase 3_ |
+| 3: Backstage | [Backstage](#backstage-phase-3-scaffold-only) (scaffold only, no SLO plugin yet) |
 | 4: kind deployment | _coming with Phase 4_ |
+
+### Backstage (Phase 3, scaffold only)
+
+Prerequisites: Node.js as pinned in [`.tool-versions`](.tool-versions) (`nodejs 24.21.0`). Yarn comes through Corepack, which reads the version the app pins in `backstage/package.json` (`packageManager`).
+
+```sh
+node --version                  # v24.21.0
+corepack enable                 # once per Node install
+cd backstage
+yarn install                    # first run, and after dependency changes
+yarn start                      # frontend on :3000, backend on :7007
+```
+
+Open <http://localhost:3000>. The catalog lists `slo-demo-service` (from `backstage/catalog/slo-demo-service.yaml`) and the generated `example-website`. Stop with `Ctrl+C` in the terminal that runs `yarn start`. If that terminal is gone, find and stop the processes:
+
+```sh
+lsof -ti :3000 -ti :7007 | sort -u | xargs kill
+```
+
+Notes:
+
+- Sign in as **Guest**. This is a local demo setup with no real authentication.
+- The catalog database is in memory (`better-sqlite3`, `:memory:`), so it is rebuilt from the YAML files on every start.
 
 ## Secret scanning
 
