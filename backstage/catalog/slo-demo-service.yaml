@@ -1,0 +1,11 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: slo-demo-service
+  description: Go demo service used for SLI/SLO experiments (not built yet, see docs/PLAN.md Phase 1).
+  annotations:
+    github.com/project-slug: salemax/slo-demo
+spec:
+  type: service
+  lifecycle: experimental
+  owner: user:default/salemax

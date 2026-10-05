@@ -22,11 +22,11 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 - Owner: D8 (Backstage plugin architecture) before the plugin itself is built. Scaffolding and the catalog entry do not need it.
 - Owner: review the D1-D6 placeholders and change any before Phase 2 rules are written.
 - Unverified: whether Anthropic's terms allow a Pro token in a third-party tool (accepted risk, see decision log). Owner should note the expiry date of the fine-grained GitHub token and renew it before then.
-- Backstage needs Node and Yarn, which are not installed on the owner's Mac. Pin them in `.tool-versions` after checking Backstage's requirements.
+- Backstage scaffold relies on a workaround (`resolutions` pin of `@yarnpkg/core` 4.9.1). Check whether backstage/backstage#35964 is fixed and remove the pin when it is.
 
 **How to continue in the next session**
 1. Read `CLAUDE.md` and this file, then `git switch main && git pull`. Check `gh pr list`.
-2. Next task: Backstage scaffold (Phase 3, first item). Propose a plan first and wait for approval. It shows nothing real until the service and Prometheus exist (Phases 1 and 2), so use static or mocked data until then.
+2. Next task: owner's choice, Phase 1 service skeleton or the SLO plugin groundwork. The Backstage app shows nothing SLO-related until the service and Prometheus exist (Phases 1 and 2). Propose a plan first and wait for approval.
 3. Update this section at the end of every session.
 
 **Restarting the agents** (they stop when their terminals close; the `--rm` containers are throwaway, the volumes keep the registration and clone). Each needs the exact start command from the Chatham UI ("Copy start command" on the agent row); it contains the agent's `dirName`. Shape:
@@ -38,7 +38,7 @@ docker run -it --rm --env-file ~/.config/slo-demo-agent.env \
 ```
 A restarted agent came back online (owner, 2026-10-05). Not verified: that the UI start command is identical to the shape above.
 
-**Machine notes (owner's Mac, 2026-10-03):** Docker Desktop 4.93.0 installed. Its CLI is not symlinked into `/usr/local/bin`, so `~/.docker/bin` must be on `PATH` (added to `~/.zshrc`). Secrets live only in `~/.config/slo-demo-agent.env` and `~/.config/slo-demo-reviewer.env` (mode 600, outside the repo). `gh` 2.102.0 and `gitleaks` 8.30.1 in `~/.local/bin`, git configured for `salemax`, hook enabled with `git config core.hooksPath .githooks`. Not installed: Node/npm, asdf, Homebrew (not needed yet). System Python is 3.9.6, too old for `pre-commit` 4.6.2.
+**Machine notes (owner's Mac, 2026-10-03):** Docker Desktop 4.93.0 installed. Its CLI is not symlinked into `/usr/local/bin`, so `~/.docker/bin` must be on `PATH` (added to `~/.zshrc`). Secrets live only in `~/.config/slo-demo-agent.env` and `~/.config/slo-demo-reviewer.env` (mode 600, outside the repo). `gh` 2.102.0 and `gitleaks` 8.30.1 in `~/.local/bin`, git configured for `salemax`, hook enabled with `git config core.hooksPath .githooks`. Node 24.21.0 installed 2026-10-05 from the official tarball into `~/.local/node-v24.21.0` (checksum checked, symlinks in `~/.local/bin`, `corepack enable` run). Not installed: asdf, Homebrew. System Python is 3.9.6, too old for `pre-commit` 4.6.2.
 
 ---
 
@@ -115,8 +115,8 @@ A restarted agent came back online (owner, 2026-10-05). Not verified: that the U
 
 ## Phase 3: Backstage SLO plugin
 
-- [ ] Scaffold a Backstage app (version verified at the time of work)
-- [ ] Register the demo service in the catalog, with an annotation pointing to its SLO data
+- [x] Scaffold a Backstage app (version verified at the time of work). `@backstage/create-app` 0.9.2, Backstage 1.55.0, Node 24.21.0, Yarn 4.13.0 (via Corepack, pinned by the app's `packageManager`). Needs a workaround for upstream bug backstage/backstage#35964, see decision log.
+- [ ] Register the demo service in the catalog, with an annotation pointing to its SLO data. Partly done: `backstage/catalog/slo-demo-service.yaml` is registered; the SLO annotation is not added yet (its design belongs with D8).
 - [ ] Plugin architecture: frontend-only via proxy, or frontend + backend plugin. **(owner)** decides after the agent presents trade-offs.
 - [ ] Entity page card showing:
   - SLO target,
@@ -242,3 +242,5 @@ Append-only. Format: `YYYY-MM-DD — decision — reason`.
 - 2026-10-03 — Agents authenticate to GitHub with the owner's fine-grained `GH_TOKEN` (this repo only), not the Chatham GitHub App — observed in the test run, PR #10 appeared under `salemax`. Consequence: author, reviewer and owner share one GitHub identity; the `main` ruleset is the real barrier.
 - 2026-10-05 — D1-D6 recorded as placeholders — owner delegated the values ("I don't care") to start Backstage first. Targets are deliberately loose (99.5%, not 99.9%) so a demo error injection burns budget visibly. Burn-rate pairs are the multi-window defaults from the Google SRE Workbook. Owner can change any of them before Phase 2 rules are written; the rules and dashboards depend on them.
 - 2026-10-05 — Chatham flow confirmed complete — owner restarted both agents and they came back online.
+- 2026-10-05 — Backstage scaffolded with `@backstage/create-app` 0.9.2, in `backstage/` — current release at the time; the app pins Yarn 4.13.0 itself, so Yarn is not in `.tool-versions`.
+- 2026-10-05 — Added `"@yarnpkg/core": "4.9.1"` to `resolutions` in `backstage/package.json` — `yarn install` of a fresh scaffold fails with a missing `got` patch file (backstage/backstage#35964, open). The pin is the workaround suggested in the issue and made `yarn install` pass here. Remove it once the issue is fixed.
