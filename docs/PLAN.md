@@ -70,8 +70,8 @@ A restarted agent came back online (owner, 2026-10-05). Not verified: that the U
 
 ## Phase 1: Go demo service
 
-- [ ] HTTP API with a small number of endpoints (e.g. one fast, one slower "business" endpoint)
-- [ ] Prometheus metrics:
+- [x] HTTP API with a small number of endpoints (e.g. one fast, one slower "business" endpoint)
+- [x] Prometheus metrics:
   - a request duration **histogram**,
   - a requests total counter labelled by status code.
   - Keep label cardinality low: route template, method and code only.
@@ -244,3 +244,4 @@ Append-only. Format: `YYYY-MM-DD — decision — reason`.
 - 2026-10-05 — Chatham flow confirmed complete — owner restarted both agents and they came back online.
 - 2026-10-05 — Backstage scaffolded with `@backstage/create-app` 0.9.2, in `backstage/` — current release at the time; the app pins Yarn 4.13.0 itself, so Yarn is not in `.tool-versions`.
 - 2026-10-05 — Added `"@yarnpkg/core": "4.9.1"` to `resolutions` in `backstage/package.json` — `yarn install` of a fresh scaffold fails with a missing `got` patch file (backstage/backstage#35964, open). The pin is the workaround suggested in the issue and made `yarn install` pass here. Remove it once the issue is fixed.
+- 2026-10-05 — Placeholder API and metric names for Phase 1: GET /api/fast, GET /api/slow (50-250 ms), http_request_duration_seconds, http_requests_total with labels route/method/code; /api/slow range chosen so the baseline stays inside the 300 ms threshold — chosen by the author agent on the owner's recommendation; owner may change.
