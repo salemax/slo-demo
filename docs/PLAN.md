@@ -86,12 +86,12 @@ A restarted agent came back online (owner, 2026-10-05). Not verified: that the U
   - a requests total counter labelled by status code.
   - Keep label cardinality low: route template, method and code only.
   - Bucket boundaries depend on the latency SLI threshold, which is an owner decision.
-- [ ] Fault injection, adjustable at runtime without a restart:
+- [x] Fault injection, adjustable at runtime without a restart:
   - an error rate (% of requests returning 5xx),
   - added latency (fixed or distribution),
   - optionally scoped per route.
 - [x] `/healthz` and `/metrics` endpoints (skeleton: process metrics only; SLO metrics come in PR 2)
-- [ ] Unit tests for handlers and fault injection logic
+- [x] Unit tests for handlers and fault injection logic
 - [ ] Multi-stage Dockerfile building `linux/arm64` and `linux/amd64`
 - [ ] Load generator in `loadgen/` producing steady traffic. Agent proposes the tool, **(owner)** approves.
 
@@ -258,3 +258,4 @@ Append-only. Format: `YYYY-MM-DD — decision — reason`.
 - 2026-10-05 — Agent PAT does not get the `Workflows` permission — it would let an agent edit `secret-scan.yml` (a required check) and contradicts D11 (minimal credentials); workflow files are committed from the owner's Claude Code session after review.
 - 2026-10-05 — `go.yml` is not a required check on `main` — the workflow is path-filtered, and a skipped workflow reports no status, so requiring it would block PRs that do not touch `service/`. Revisit with the owner.
 - 2026-10-05 — Client-cancelled requests are recorded as `code="499"` — found in review of PR #18: a handler that returned early on a cancelled context was recorded as a fast `200`, inflating both SLIs. Whether 499 is a valid event is a Phase 2 decision.
+- 2026-10-05 — Placeholder fault injection API for Phase 1: admin server on ADMIN_ADDR (default 127.0.0.1:8081), GET/PUT/DELETE /admin/faults, rules per route ("all", /api/fast, /api/slow) with error_rate and fixed latency_ms, gauges fault_injection_error_ratio and fault_injection_added_latency_seconds — chosen by the author agent on the owner's recommendation; owner may change.
