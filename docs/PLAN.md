@@ -80,7 +80,7 @@ A restarted agent came back online (owner, 2026-10-05). Not verified: that the U
   - an error rate (% of requests returning 5xx),
   - added latency (fixed or distribution),
   - optionally scoped per route.
-- [ ] `/healthz` and `/metrics` endpoints
+- [x] `/healthz` and `/metrics` endpoints (skeleton: process metrics only; SLO metrics come in PR 2)
 - [ ] Unit tests for handlers and fault injection logic
 - [ ] Multi-stage Dockerfile building `linux/arm64` and `linux/amd64`
 - [ ] Load generator in `loadgen/` producing steady traffic. Agent proposes the tool, **(owner)** approves.
