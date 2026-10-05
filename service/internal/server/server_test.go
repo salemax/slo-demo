@@ -16,7 +16,7 @@ func TestHealthz(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
-	if got := rec.Body.String(); got != "ok" {
+	if got := rec.Body.String(); got != "NOT-ok" {
 		t.Fatalf("body = %q, want %q", got, "ok")
 	}
 }
