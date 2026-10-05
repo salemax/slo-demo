@@ -17,6 +17,11 @@ var httpDurationBuckets = []float64{
 	0.005, 0.01, 0.025, 0.05, 0.1, 0.2, 0.3, 0.5, 1, 2.5, 5,
 }
 
+// statusClientClosedRequest is the nginx convention for "the client went away
+// before we answered". It is not an IANA status, but it is the de-facto label
+// for this case and keeps abandoned requests apart from real 200s.
+const statusClientClosedRequest = 499
+
 // metrics holds the SLO-relevant HTTP metrics, registered on a single
 // dedicated registry (see newRegistry in server.go).
 type metrics struct {
@@ -62,7 +67,16 @@ func (m *metrics) middleware(next http.Handler) http.Handler {
 
 		route := routeLabel(r.Pattern)
 		method := methodLabel(r.Method)
-		code := strconv.Itoa(rec.status)
+		status := rec.status
+		// A handler that gave up because the request context was cancelled
+		// returns without writing, which would otherwise be recorded as a
+		// fast 200 and inflate both SLIs. The context is only cancelled by
+		// the server after this middleware returns, so a non-nil error here
+		// means the client (or an upstream timeout) ended the request first.
+		if !rec.wroteHeader && r.Context().Err() != nil {
+			status = statusClientClosedRequest
+		}
+		code := strconv.Itoa(status)
 
 		m.duration.WithLabelValues(route, method, code).Observe(time.Since(start).Seconds())
 		m.requests.WithLabelValues(route, method, code).Inc()

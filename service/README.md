@@ -30,6 +30,11 @@ response status as a string):
   1, 2.5, 5`. `0.3` is the D2 latency threshold.
 - `http_requests_total` — counter.
 
+A request whose client went away before the handler wrote anything (for
+example a load-generator timeout) is recorded as `code="499"`, not as a
+fast `200`: otherwise abandoned requests would count as good, quick events.
+Whether `499` is a valid event for an SLI is a Phase 2 decision.
+
 ## Run
 
 ```sh

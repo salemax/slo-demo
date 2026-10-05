@@ -215,6 +215,50 @@ func TestCtxSleepReturnsOnCancellation(t *testing.T) {
 	}
 }
 
+func TestCancelledRequestRecordedAs499(t *testing.T) {
+	h := NewHandler()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	// A real /api/slow request whose client has already gone away: the
+	// handler returns without writing anything.
+	req := httptest.NewRequest(http.MethodGet, "/api/slow", nil).WithContext(ctx)
+	h.ServeHTTP(httptest.NewRecorder(), req)
+
+	body := scrapeMetrics(t, h)
+	if !strings.Contains(body, `http_requests_total{code="499",method="GET",route="/api/slow"} 1`) {
+		t.Fatalf("cancelled request not recorded as 499:\n%s", body)
+	}
+	if strings.Contains(body, `code="200",method="GET",route="/api/slow"`) {
+		t.Fatalf("cancelled request must not be recorded as a 200:\n%s", body)
+	}
+}
+
+func TestResponseWrittenBeforeCancellationKeepsItsStatus(t *testing.T) {
+	reg := prometheus.NewRegistry()
+	m := newMetrics(reg)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /done", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("ok"))
+	})
+	h := m.middleware(mux)
+
+	// The client disconnects after the response was written: the real status
+	// must win over the 499 fallback.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	req := httptest.NewRequest(http.MethodGet, "/done", nil).WithContext(ctx)
+	h.ServeHTTP(httptest.NewRecorder(), req)
+
+	if got := testutil.ToFloat64(m.requests.WithLabelValues("/done", "GET", "200")); got != 1 {
+		t.Fatalf("/done 200 counter = %v, want 1", got)
+	}
+	if got := testutil.ToFloat64(m.requests.WithLabelValues("/done", "GET", "499")); got != 0 {
+		t.Fatalf("/done 499 counter = %v, want 0", got)
+	}
+}
+
 func TestSlowHandlerStopsOnContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
