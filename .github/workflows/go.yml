@@ -1,0 +1,43 @@
+name: go
+
+on:
+  pull_request:
+    paths:
+      - service/**
+      - .github/workflows/go.yml
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: service
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The job never pushes, so do not leave the token in the checkout.
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # Single source of truth for the Go version: service/go.mod.
+          # Avoids a second hard-coded version drifting from .tool-versions.
+          go-version-file: service/go.mod
+          cache-dependency-path: service/go.sum
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go test
+        run: go test -count=1 -race ./...
+
+      - name: go build
+        run: go build ./...
+
+      - name: go mod tidy (no diff)
+        # Fails if go.mod/go.sum would change, without writing to them.
+        run: go mod tidy -diff
