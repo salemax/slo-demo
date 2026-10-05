@@ -6,7 +6,7 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 
 ---
 
-## Where we left off (updated 2026-10-05)
+## Where we left off (updated 2026-10-05, end of day)
 
 **Done:** Phase 0 hygiene: `CLAUDE.md` and this plan, `.gitignore`, gitleaks secret scanning (local hook plus CI), `.tool-versions` (golang 1.27.1, gitleaks 8.30.1, promtool 3.15.0), Apache-2.0 license, README skeleton, branch protection on `main` (ruleset `initial`: PR required, squash only, `gitleaks` check required, no force-push or deletion, no bypass).
 
@@ -16,18 +16,28 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 - Test run: the author opened **PR #10** (README one-liner), the reviewer reviewed it and posted 3 questions in the channel. PR #10 was merged on 2026-10-05.
 - Findings: agents open PRs and post reviews as `salemax` through `GH_TOKEN`, not as `agent-chatham[bot]` (so author, reviewer and owner look the same on GitHub). `CLAUDE_CODE_OAUTH_TOKEN` is the working variable name for the `setup-token` token. In a container, `agentchatham register` needs `AGENT_CHATHAM_KEY_SECRET` (no keychain). A failed register can leave a stale duplicate agent in the UI; delete the one that stays offline.
 
-**Since then (2026-10-05):** PR #10 (README note) and PR #12 (`.editorconfig`) merged. Both agents were restarted and came back online, so Phase 0 Chatham items are ticked. D1-D6 are recorded as **placeholders** (owner delegated them, see Decisions): they unblock work but are not a considered choice.
+**Done on 2026-10-05 (PRs #10 to #19, all merged):**
+- Phase 0 is complete, including the Chatham test run. D1-D6 are recorded as **placeholders** (owner delegated them, see Decisions): they unblock work but are not a considered choice.
+- Backstage scaffold in `backstage/` (PR #15) with a workaround for upstream bug backstage/backstage#35964; catalog entry `slo-demo-service` plus a `User` entity `salemax` (PR #16). How to run it: README, "Backstage". The SLO plugin itself does not exist yet.
+- Go service in `service/`: skeleton with `/healthz` and `/metrics` (PR #17, author agent), then `/api/fast`, `/api/slow` and the SLO metrics `http_request_duration_seconds` and `http_requests_total` with labels `route`, `method`, `code` (PR #18, author agent, plus a fix from the owner's Claude Code session: client-cancelled requests are recorded as `code="499"`, not as fast 200s).
+- Go CI workflow `go.yml` (PR #19): vet, race tests, build, `go mod tidy -diff` on PRs touching `service/`. It is **not** a required check (a path-filtered workflow that is skipped reports no status, so requiring it would block unrelated PRs). Owner decision: leave optional, drop the path filter, or add an always-running gate job.
+- Agent token finding: the agent's fine-grained PAT has no `Workflows` permission, so agents cannot push files under `.github/workflows/`. Decision: keep it that way (minimal credentials, D11). Workflow changes go through the owner's Claude Code session or the owner.
 
 **Still open:**
-- Owner: D8 (Backstage plugin architecture) before the plugin itself is built. Scaffolding and the catalog entry do not need it.
+- **Next task: Phase 1, PR 3, fault injection.** Owner has not approved the design yet. Recommended: runtime-adjustable through an admin HTTP endpoint (`PUT`/`GET /admin/faults`, JSON with error rate and latency) on a separate port (e.g. `:8081`, not published by default, no auth, stated as out of scope); scoped per route with an optional route field; `/healthz`, `/metrics` and the admin port are never faulted; injected errors are real 5xx responses through the existing middleware (not panics, which the middleware does not record); one gauge exposing the active fault settings. Then the brief goes to the author agent.
+- Remaining Phase 1 after that: Dockerfile (arm64 and amd64), load generator (D9 is open, owner approves the tool), the unit-test item.
+- Open question for Phase 2, owner: do unmatched 404s and `499` count as valid or good events? As built, 404 counts as good (status < 500) and `unmatched` is recorded.
+- Owner: D8 (Backstage plugin architecture) before the plugin itself is built.
 - Owner: review the D1-D6 placeholders and change any before Phase 2 rules are written.
 - Unverified: whether Anthropic's terms allow a Pro token in a third-party tool (accepted risk, see decision log). Owner should note the expiry date of the fine-grained GitHub token and renew it before then.
-- Backstage scaffold relies on a workaround (`resolutions` pin of `@yarnpkg/core` 4.9.1). Check whether backstage/backstage#35964 is fixed and remove the pin when it is.
+- Remove the `@yarnpkg/core` pin in `backstage/package.json` when backstage/backstage#35964 is fixed.
+- Go is not installed on the owner's Mac (CI and the agent container run it). Install it, checksum-verified, only when working on `service/` locally.
 
 **How to continue in the next session**
-1. Read `CLAUDE.md` and this file, then `git switch main && git pull`. Check `gh pr list`.
-2. Next task: owner's choice, Phase 1 service skeleton or the SLO plugin groundwork. The Backstage app shows nothing SLO-related until the service and Prometheus exist (Phases 1 and 2). Propose a plan first and wait for approval.
-3. Update this section at the end of every session.
+1. Read `CLAUDE.md` and this file, then `git switch main && git pull`. Check `gh pr list` and delete merged local branches.
+2. Ask the owner to approve or change the PR 3 design above, then write the author brief (template below; briefs for `service/` tasks must require real command output, not placeholders, and tell the agent to install Go into its home volume if `~/.local/go` is missing). Reviewer brief afterwards.
+3. One agent task at a time. Review each agent PR by running the checks myself (vet, tests, binary, `curl`), as done for #17 and #18.
+4. Update this section at the end of every session.
 
 **Restarting the agents** (they stop when their terminals close; the `--rm` containers are throwaway, the volumes keep the registration and clone). Each needs the exact start command from the Chatham UI ("Copy start command" on the agent row); it contains the agent's `dirName`. Shape:
 ```sh
@@ -38,7 +48,7 @@ docker run -it --rm --env-file ~/.config/slo-demo-agent.env \
 ```
 A restarted agent came back online (owner, 2026-10-05). Not verified: that the UI start command is identical to the shape above.
 
-**Machine notes (owner's Mac, 2026-10-03):** Docker Desktop 4.93.0 installed. Its CLI is not symlinked into `/usr/local/bin`, so `~/.docker/bin` must be on `PATH` (added to `~/.zshrc`). Secrets live only in `~/.config/slo-demo-agent.env` and `~/.config/slo-demo-reviewer.env` (mode 600, outside the repo). `gh` 2.102.0 and `gitleaks` 8.30.1 in `~/.local/bin`, git configured for `salemax`, hook enabled with `git config core.hooksPath .githooks`. Node 24.21.0 installed 2026-10-05 from the official tarball into `~/.local/node-v24.21.0` (checksum checked, symlinks in `~/.local/bin`, `corepack enable` run). Not installed: asdf, Homebrew. System Python is 3.9.6, too old for `pre-commit` 4.6.2.
+**Machine notes (owner's Mac, updated 2026-10-05):** Docker Desktop 4.93.0 installed. Its CLI is not symlinked into `/usr/local/bin`, so `~/.docker/bin` must be on `PATH` (added to `~/.zshrc`). Secrets live only in `~/.config/slo-demo-agent.env` and `~/.config/slo-demo-reviewer.env` (mode 600, outside the repo). `gh` 2.102.0 and `gitleaks` 8.30.1 in `~/.local/bin`, git configured for `salemax`, hook enabled with `git config core.hooksPath .githooks`. Node 24.21.0 installed 2026-10-05 from the official tarball into `~/.local/node-v24.21.0` (checksum checked, symlinks in `~/.local/bin`, `corepack enable` run). Not installed: asdf, Homebrew. System Python is 3.9.6, too old for `pre-commit` 4.6.2.
 
 ---
 
@@ -133,7 +143,7 @@ A restarted agent came back online (owner, 2026-10-05). Not verified: that the U
 
 - [ ] Helm chart for the service (plus monitoring components as needed)
 - [ ] Local cluster with kind (arm64)
-- [ ] GitHub Actions CI:
+- [ ] GitHub Actions CI (Go checks workflow for `service/` is done, PR #19; not a required check yet):
   - lint, test, build,
   - multi-arch image push to GHCR,
   - `helm lint` and chart tests,
@@ -245,3 +255,6 @@ Append-only. Format: `YYYY-MM-DD — decision — reason`.
 - 2026-10-05 — Backstage scaffolded with `@backstage/create-app` 0.9.2, in `backstage/` — current release at the time; the app pins Yarn 4.13.0 itself, so Yarn is not in `.tool-versions`.
 - 2026-10-05 — Added `"@yarnpkg/core": "4.9.1"` to `resolutions` in `backstage/package.json` — `yarn install` of a fresh scaffold fails with a missing `got` patch file (backstage/backstage#35964, open). The pin is the workaround suggested in the issue and made `yarn install` pass here. Remove it once the issue is fixed.
 - 2026-10-05 — Placeholder API and metric names for Phase 1: GET /api/fast, GET /api/slow (50-250 ms), http_request_duration_seconds, http_requests_total with labels route/method/code; /api/slow range chosen so the baseline stays inside the 300 ms threshold — chosen by the author agent on the owner's recommendation; owner may change.
+- 2026-10-05 — Agent PAT does not get the `Workflows` permission — it would let an agent edit `secret-scan.yml` (a required check) and contradicts D11 (minimal credentials); workflow files are committed from the owner's Claude Code session after review.
+- 2026-10-05 — `go.yml` is not a required check on `main` — the workflow is path-filtered, and a skipped workflow reports no status, so requiring it would block PRs that do not touch `service/`. Revisit with the owner.
+- 2026-10-05 — Client-cancelled requests are recorded as `code="499"` — found in review of PR #18: a handler that returned early on a cancelled context was recorded as a fast `200`, inflating both SLIs. Whether 499 is a valid event is a Phase 2 decision.
