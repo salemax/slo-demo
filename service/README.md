@@ -1,10 +1,11 @@
 # service
 
 Minimal Go HTTP service: a health check, Prometheus metrics (process-level
-plus SLO-relevant HTTP metrics), and two placeholder business endpoints.
-Endpoint behaviour and metric names are placeholders agreed with the owner
-for Phase 1 PR 2 (see `docs/PLAN.md` decision log, 2026-10-05); fault
-injection and a Dockerfile land in later PRs.
+plus SLO-relevant HTTP metrics), two placeholder business endpoints, and
+runtime-adjustable fault injection through a separate admin API. Endpoint
+behaviour, metric names and the admin API are placeholders agreed with the
+owner for Phase 1 (see `docs/PLAN.md` decision log); a Dockerfile and load
+generator land in later PRs.
 
 ## Endpoints
 
@@ -35,14 +36,71 @@ example a load-generator timeout) is recorded as `code="499"`, not as a
 fast `200`: otherwise abandoned requests would count as good, quick events.
 Whether `499` is a valid event for an SLI is a Phase 2 decision.
 
+## Fault injection (admin API)
+
+A separate admin server, on `ADMIN_ADDR` (default `127.0.0.1:8081`, loopback
+only), lets you inject errors and added latency into `/api/fast` and
+`/api/slow` at runtime, no restart needed. It is never reachable from the
+public port (`PORT`), and public-port behaviour is unchanged when no fault
+is active.
+
+**No authentication.** This is a Phase 1 placeholder for a local demo: the
+separate loopback-only port is the only protection, by design (see the PR
+for alternatives considered). Do not expose `ADMIN_ADDR` beyond the host.
+
+- `GET /admin/faults` — current configuration as JSON.
+- `PUT /admin/faults` — replace the **whole** configuration atomically.
+  Body: `{"rules":[{"route":"...","error_rate":0.0-1.0,"latency_ms":0-10000}]}`.
+  `route` is exactly one of `"all"`, `"/api/fast"`, `"/api/slow"`; at most
+  one rule per route, a route-specific rule overrides `"all"`. Unknown
+  fields, malformed JSON, and bodies over 1 MiB are rejected with a 4xx and
+  a short JSON error; an invalid body never partially applies.
+- `DELETE /admin/faults` — clear all faults (equivalent to `PUT` with no
+  rules).
+
+An affected request waits the added latency first (stopping early, and
+being recorded as `code="499"`, if the client disconnects while waiting),
+then, with probability `error_rate`, responds `500` with
+`{"error":"injected fault"}` **without** calling the real handler --
+otherwise the real handler runs as normal. Both the wait and the real
+handler happen inside the metrics middleware, so an injected error is
+recorded as a real `code="500"` and the recorded duration includes the
+injected latency.
+
+Two gauges on the same `/metrics` registry expose the *active*
+configuration (not a count of injections), so Grafana can later mark "a
+fault was active" over a time range. Placeholder names for Phase 1:
+
+- `fault_injection_error_ratio{route}` — 0-1.
+- `fault_injection_added_latency_seconds{route}` — seconds.
+
+Both exist for `route` in `all`, `/api/fast`, `/api/slow` from startup,
+initialised to `0`, and follow every `PUT`/`DELETE`.
+
+```sh
+# Inject a 5% error rate and 200ms of added latency on /api/slow:
+curl -s -X PUT localhost:8081/admin/faults \
+  -d '{"rules":[{"route":"/api/slow","error_rate":0.05,"latency_ms":200}]}'
+
+curl -s localhost:8081/admin/faults
+# {"rules":[{"route":"/api/slow","error_rate":0.05,"latency_ms":200}]}
+
+curl -s -o /dev/null -w '%{http_code}\n' localhost:8080/admin/faults
+# 404 -- the admin API is not on the public port
+
+curl -s -X DELETE localhost:8081/admin/faults
+# {"rules":[]}
+```
+
 ## Run
 
 ```sh
-PORT=8080 go run ./cmd/server
+PORT=8080 ADMIN_ADDR=127.0.0.1:8081 go run ./cmd/server
 ```
 
-`PORT` defaults to `8080` if unset. Stop with Ctrl-C (SIGINT) or `SIGTERM`;
-the server shuts down gracefully.
+`PORT` defaults to `8080` and `ADMIN_ADDR` to `127.0.0.1:8081` if unset.
+Stop with Ctrl-C (SIGINT) or `SIGTERM`; both servers shut down gracefully
+together.
 
 ## Verify
 

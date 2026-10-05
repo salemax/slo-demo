@@ -2,6 +2,7 @@
 package server
 
 import (
+	"math/rand/v2"
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -9,20 +10,45 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-// NewHandler builds the service's http.Handler: a health check, a
-// Prometheus metrics endpoint, and the business endpoints, instrumented by
-// a metrics middleware wrapping the whole mux (see metrics.go).
+// NewHandler builds just the public handler, for callers (and most tests)
+// that don't need the admin API. See NewHandlers for both.
 func NewHandler() http.Handler {
+	public, _ := NewHandlers()
+	return public
+}
+
+// NewHandlers builds the service's two HTTP handlers, sharing one dedicated
+// registry and one fault store (faults.go):
+//
+//   - public: health check, Prometheus metrics, and the business
+//     endpoints. Each business endpoint is wrapped by the fault store
+//     first and then by the SLO metrics middleware (metrics.go), so
+//     injected latency is included in the recorded duration and an
+//     injected error is observed as a real 500, like any other response.
+//   - admin: fault configuration (admin.go). Deliberately outside the
+//     metrics middleware, so admin traffic never appears in
+//     http_requests_total / http_request_duration_seconds. The caller
+//     (cmd/server) must serve this on a separate listener -- see its own
+//     doc comment for why.
+func NewHandlers() (public, admin http.Handler) {
+	return newHandlers(ctxSleep, rand.Float64)
+}
+
+// newHandlers is NewHandlers with the fault store's timing and randomness
+// injectable, so tests can exercise fault injection without sleeping or
+// depending on chance. Production always goes through NewHandlers.
+func newHandlers(sleep sleeper, chance randomChance) (public, admin http.Handler) {
 	reg := newRegistry()
 	m := newMetrics(reg)
+	fs := newFaultStore(reg, sleep, chance)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", healthzHandler)
 	mux.Handle("GET /metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
-	mux.HandleFunc("GET /api/fast", fastHandler)
-	mux.HandleFunc("GET /api/slow", newSlowHandler(uniformDelay(slowMinDelay, slowMaxDelay), ctxSleep))
+	mux.HandleFunc("GET /api/fast", fs.wrap("/api/fast", fastHandler))
+	mux.HandleFunc("GET /api/slow", fs.wrap("/api/slow", newSlowHandler(uniformDelay(slowMinDelay, slowMaxDelay), ctxSleep)))
 
-	return m.middleware(mux)
+	return m.middleware(mux), newAdminHandler(fs)
 }
 
 // newRegistry returns a dedicated Prometheus registry instead of using the
