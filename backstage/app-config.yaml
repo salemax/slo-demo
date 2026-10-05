@@ -198,6 +198,12 @@ catalog:
     - type: file
       target: ../../catalog/slo-demo-service.yaml
 
+    # Owner of the demo service, referenced by catalog/slo-demo-service.yaml.
+    - type: file
+      target: ../../catalog/users.yaml
+      rules:
+        - allow: [User]
+
     # Local example template
     - type: file
       target: ../../examples/template/template.yaml
