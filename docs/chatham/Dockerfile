@@ -4,7 +4,7 @@
 # Versions verified 2026-10-03:
 #   node 24.21.0 (Node 24 is the LTS line; Claude Code needs >=22) - Docker Hub, official image, amd64+arm64
 #   @anthropic-ai/claude-code 2.1.288 - npm registry
-#   @agentchatham/cli 3.17.0 - npm registry
+#   @agentchatham/cli 3.19.2 - npm registry (bumped from 3.17.0 on 2026-10-06)
 #   gh 2.102.0 - GitHub release, checksums from the release's checksums.txt
 FROM node:24.21.0-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6
 
@@ -32,7 +32,7 @@ RUN set -eu; \
     install -m 0755 "/tmp/gh_${GH_VERSION}_linux_${TARGETARCH}/bin/gh" /usr/local/bin/gh; \
     rm -rf /tmp/gh*
 
-RUN npm install -g @anthropic-ai/claude-code@2.1.288 @agentchatham/cli@3.17.0
+RUN npm install -g @anthropic-ai/claude-code@2.1.288 @agentchatham/cli@3.19.2
 
 # Non-root user; the base image already ships a `node` user (uid 1000).
 USER node
