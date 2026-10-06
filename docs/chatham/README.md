@@ -7,7 +7,7 @@ Local Chatham agents have no sandbox and act with the credentials of the machine
 | Has | Does not have |
 |-----|---------------|
 | Node 24.21.0, `git`, `gh` 2.102.0 | The owner's `gh` login, `~/.ssh`, or any home-directory mount |
-| Claude Code 2.1.288, `@agentchatham/cli` 3.17.0 | Any token baked into the image |
+| Claude Code 2.1.288, `@agentchatham/cli` 3.19.2 | Any token baked into the image |
 | A non-root `node` user | Docker socket access |
 
 Everything is pinned; the base image is pinned by digest. Update the versions deliberately, after checking them against the official source.

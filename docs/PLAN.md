@@ -12,7 +12,7 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 
 **Agent Chatham is set up and works (2026-10-03):**
 - D10 Pro token, D11 Docker container, D12 two Claude agents (author and reviewer, both Sonnet 5). Definition and run instructions: `docs/chatham/`.
-- Image `slo-demo-agent` built and checked (node 24.21.0, gh 2.102.0, Claude Code 2.1.288, `agentchatham` 3.17.0). Both agents registered, online, each in its own container and volume (`slo-demo-agent-author`, `slo-demo-agent-reviewer`).
+- Image `slo-demo-agent` built and checked (node 24.21.0, gh 2.102.0, Claude Code 2.1.288, `agentchatham` 3.17.0). Both agents registered, online, each in its own container and volume (`slo-demo-agent-author`, `slo-demo-agent-reviewer`). Dockerfile bumped to `agentchatham` 3.19.2 on 2026-10-06 (build checked; the running agents still use the 3.17.0 image until the owner rebuilds and restarts them).
 - Test run: the author opened **PR #10** (README one-liner), the reviewer reviewed it and posted 3 questions in the channel. PR #10 was merged on 2026-10-05.
 - Findings: agents open PRs and post reviews as `salemax` through `GH_TOKEN`, not as `agent-chatham[bot]` (so author, reviewer and owner look the same on GitHub). `CLAUDE_CODE_OAUTH_TOKEN` is the working variable name for the `setup-token` token. In a container, `agentchatham register` needs `AGENT_CHATHAM_KEY_SECRET` (no keychain). A failed register can leave a stale duplicate agent in the UI; delete the one that stays offline.
 
