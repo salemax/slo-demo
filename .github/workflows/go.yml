@@ -1,21 +1,23 @@
 name: go
 
+# No path filter: a skipped path-filtered workflow reports no status, so it
+# could never be a required check. It runs on every PR instead.
 on:
   pull_request:
-    paths:
-      - service/**
-      - .github/workflows/go.yml
 
 permissions:
   contents: read
 
-defaults:
-  run:
-    working-directory: service
-
 jobs:
   checks:
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [service, loadgen]
+    defaults:
+      run:
+        working-directory: ${{ matrix.module }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -24,10 +26,12 @@ jobs:
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          # Single source of truth for the Go version: service/go.mod.
+          # Single source of truth for the Go version: the module's go.mod.
           # Avoids a second hard-coded version drifting from .tool-versions.
-          go-version-file: service/go.mod
-          cache-dependency-path: service/go.sum
+          go-version-file: ${{ matrix.module }}/go.mod
+          # go.mod, not go.sum: loadgen uses only the standard library, so it
+          # has no go.sum to hash for the module cache key.
+          cache-dependency-path: ${{ matrix.module }}/go.mod
 
       - name: go vet
         run: go vet ./...
@@ -41,3 +45,19 @@ jobs:
       - name: go mod tidy (no diff)
         # Fails if go.mod/go.sum would change, without writing to them.
         run: go mod tidy -diff
+
+  # One stable check name for branch protection. Matrix job names change with
+  # the module list; this one does not. `if: always()` makes it report a
+  # failure (not a skip) when a matrix job fails, because a skipped required
+  # check counts as passing.
+  go-gate:
+    needs: checks
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: All Go checks passed
+        env:
+          RESULT: ${{ needs.checks.result }}
+        run: |
+          echo "checks: $RESULT"
+          test "$RESULT" = "success"
