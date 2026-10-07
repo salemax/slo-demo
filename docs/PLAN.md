@@ -6,37 +6,44 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 
 ---
 
-## Where we left off (updated 2026-10-05, end of day)
+## Where we left off (updated 2026-10-07)
 
-**Done:** Phase 0 hygiene: `CLAUDE.md` and this plan, `.gitignore`, gitleaks secret scanning (local hook plus CI), `.tool-versions` (golang 1.27.1, gitleaks 8.30.1, promtool 3.15.0), Apache-2.0 license, README skeleton, branch protection on `main` (ruleset `initial`: PR required, squash only, `gitleaks` check required, no force-push or deletion, no bypass).
+**Done:** Phase 0 complete: `CLAUDE.md` and this plan, `.gitignore`, gitleaks secret scanning (local hook plus CI), `.tool-versions` (golang 1.27.1, gitleaks 8.30.1, promtool 3.15.0), Apache-2.0 license, README skeleton, branch protection on `main` (ruleset `initial`: PR required, squash only, `gitleaks` check required, no force-push or deletion, no bypass), and the Chatham test run (PR #10). D1-D6 are recorded as **placeholders** (owner delegated them, see Decisions): they unblock work but are not a considered choice.
+
+**Phase 1 is complete** (PRs #17, #18, #19, #22, #25, #26, all merged; `service/` and `loadgen/` are separate Go modules):
+- Go service in `service/`: skeleton with `/healthz` and `/metrics` (#17), then `/api/fast`, `/api/slow` and the SLO metrics `http_request_duration_seconds` and `http_requests_total` with labels `route`, `method`, `code` (#18, plus a fix from the owner's Claude Code session: client-cancelled requests are recorded as `code="499"`, not as fast 200s).
+- Fault injection, adjustable at runtime (#22): admin API `GET`/`PUT`/`DELETE /admin/faults` on a separate server, `ADMIN_ADDR` default `127.0.0.1:8081`, rules per route (`all`, `/api/fast`, `/api/slow`) with `error_rate` and fixed `latency_ms`, gauges `fault_injection_error_ratio` and `fault_injection_added_latency_seconds`. No auth on the admin port. Reviewed by running it.
+- Multi-stage, multi-arch Dockerfile for `service/` (#25). Reviewed by running it: the pinned base-image digests matched the registry, the `linux/amd64,linux/arm64` build succeeded, the native arm64 image ran, the admin API was reachable only on the loopback-published port, and `SIGTERM` exited 0. The amd64 binary was not run by the reviewer.
+- Load generator in `loadgen/` (#26): open-loop Go program, standard library only, own module. Open-loop means requests are scheduled from the clock and never wait for earlier responses, so injected latency shows up in the latency SLI instead of quietly lowering the offered rate; only the in-flight cap can reduce what is sent, and refused requests are counted as `dropped`. It calls only the mix routes, never `/healthz`, `/metrics` or `/admin/*` (D1). **Every default is a placeholder** (rate 20/s, mix `/api/fast` 80 / `/api/slow` 20, 5 s client timeout, 1000 in-flight cap) and the owner may change any of them. One interaction to note: the 5 s timeout equals the top histogram bucket (D5), so a request slower than that is recorded as `499`.
+- Go CI workflow `go.yml` (#19): vet, race tests, build, `go mod tidy -diff` on PRs touching `service/`. `loadgen/` therefore has no CI.
+- Agent Chatham CLI bumped to 3.19.2 in `docs/chatham/Dockerfile` (#24, build checked).
+
+**Backstage (Phase 3, started early):** scaffold in `backstage/` (#15) with a workaround for upstream bug backstage/backstage#35964; catalog entry `slo-demo-service` plus a `User` entity `salemax` (#16). How to run it: README, "Backstage". The SLO plugin itself does not exist yet, and the SLO annotation is not added (its design belongs with D8).
 
 **Agent Chatham is set up and works (2026-10-03):**
 - D10 Pro token, D11 Docker container, D12 two Claude agents (author and reviewer, both Sonnet 5). Definition and run instructions: `docs/chatham/`.
-- Image `slo-demo-agent` built and checked (node 24.21.0, gh 2.102.0, Claude Code 2.1.288, `agentchatham` 3.17.0). Both agents registered, online, each in its own container and volume (`slo-demo-agent-author`, `slo-demo-agent-reviewer`). Dockerfile bumped to `agentchatham` 3.19.2 on 2026-10-06 (build checked; the running agents still use the 3.17.0 image until the owner rebuilds and restarts them).
+- Image `slo-demo-agent` built and checked (node 24.21.0, gh 2.102.0, Claude Code 2.1.288). Both agents registered, online, each in its own container and volume (`slo-demo-agent-author`, `slo-demo-agent-reviewer`). Not verified from this session: whether the running agents still use the older 3.17.0 image, i.e. whether the owner has rebuilt and restarted them since #24.
 - Test run: the author opened **PR #10** (README one-liner), the reviewer reviewed it and posted 3 questions in the channel. PR #10 was merged on 2026-10-05.
 - Findings: agents open PRs and post reviews as `salemax` through `GH_TOKEN`, not as `agent-chatham[bot]` (so author, reviewer and owner look the same on GitHub). `CLAUDE_CODE_OAUTH_TOKEN` is the working variable name for the `setup-token` token. In a container, `agentchatham register` needs `AGENT_CHATHAM_KEY_SECRET` (no keychain). A failed register can leave a stale duplicate agent in the UI; delete the one that stays offline.
 
-**Done on 2026-10-05 (PRs #10 to #22, all merged):**
-- Phase 0 is complete, including the Chatham test run. D1-D6 are recorded as **placeholders** (owner delegated them, see Decisions): they unblock work but are not a considered choice.
-- Backstage scaffold in `backstage/` (PR #15) with a workaround for upstream bug backstage/backstage#35964; catalog entry `slo-demo-service` plus a `User` entity `salemax` (PR #16). How to run it: README, "Backstage". The SLO plugin itself does not exist yet.
-- Go service in `service/`: skeleton with `/healthz` and `/metrics` (PR #17, author agent), then `/api/fast`, `/api/slow` and the SLO metrics `http_request_duration_seconds` and `http_requests_total` with labels `route`, `method`, `code` (PR #18, author agent, plus a fix from the owner's Claude Code session: client-cancelled requests are recorded as `code="499"`, not as fast 200s).
-- Go CI workflow `go.yml` (PR #19): vet, race tests, build, `go mod tidy -diff` on PRs touching `service/`. It is **not** a required check (a path-filtered workflow that is skipped reports no status, so requiring it would block unrelated PRs). Owner decision: leave optional, drop the path filter, or add an always-running gate job.
-- Agent token finding: the agent's fine-grained PAT has no `Workflows` permission, so agents cannot push files under `.github/workflows/`. Decision: keep it that way (minimal credentials, D11). Workflow changes go through the owner's Claude Code session or the owner.
+**Next task: Phase 2, starting with `monitoring/docker-compose.yml`** (Prometheus, Grafana, the service and loadgen, all arm64-compatible). Two owner items block the rules that follow it, and the compose brief should not get ahead of them:
+- Review the D1-D6 placeholders and change any before Phase 2 rules are written. The recording rules, bucket boundaries, burn-rate windows and dashboards all derive from them.
+- Decide whether unmatched 404s and `499` count as valid or good events. As built, 404 counts as good (status < 500) and `unmatched` is recorded as the route.
 
 **Still open:**
-- **Next task: Phase 1, Dockerfile**, then the load generator (D9 open, owner approves the tool). Phase 1 is otherwise done: fault injection merged in PR #22 (author agent): admin API `GET`/`PUT`/`DELETE /admin/faults` on a separate server, `ADMIN_ADDR` default `127.0.0.1:8081`, rules per route (`all`, `/api/fast`, `/api/slow`) with `error_rate` and fixed `latency_ms`, gauges `fault_injection_error_ratio` and `fault_injection_added_latency_seconds`. Reviewed by running it (race tests, live curl sequence, hang-up under injected latency recorded as 499, admin port conflict exits 1).
-- Dockerfile notes for the brief: the admin port has no authentication, so in a container `ADMIN_ADDR` must be set to `0.0.0.0:8081` to be reachable and that port must not be published beyond the owner's machine. Image must support `linux/arm64` and `linux/amd64`. Minor known nit in PR #22: `PUT {"rules":[]}}` (stray closing brace) is accepted.
-- Open question for Phase 2, owner: do unmatched 404s and `499` count as valid or good events? As built, 404 counts as good (status < 500) and `unmatched` is recorded.
+- Dockerfile and container usage (multi-arch build, published ports, `ADMIN_ADDR` in a container): `service/README.md`, "Docker".
+- `go.yml` is **not** a required check: a path-filtered workflow that is skipped reports no status, so requiring it would block unrelated PRs. Owner decision: leave optional, drop the path filter, or add an always-running gate job.
+- Agents cannot push files under `.github/workflows/` (the fine-grained PAT has no `Workflows` permission, kept that way per D11). Workflow changes go through the owner's Claude Code session or the owner.
+- Minor known nit from #22, not fixed: `PUT {"rules":[]}}` (stray closing brace) is accepted.
 - Owner: D8 (Backstage plugin architecture) before the plugin itself is built.
-- Owner: review the D1-D6 placeholders and change any before Phase 2 rules are written.
 - Unverified: whether Anthropic's terms allow a Pro token in a third-party tool (accepted risk, see decision log). Owner should note the expiry date of the fine-grained GitHub token and renew it before then.
 - Remove the `@yarnpkg/core` pin in `backstage/package.json` when backstage/backstage#35964 is fixed.
-- Go is not installed on the owner's Mac (CI and the agent container run it). Install it, checksum-verified, only when working on `service/` locally.
+- Go is not installed on the owner's Mac (CI and the agent container run it). Install it, checksum-verified, only when working on `service/` or `loadgen/` locally.
 
 **How to continue in the next session**
 1. Read `CLAUDE.md` and this file, then `git switch main && git pull`. Check `gh pr list` and delete merged local branches.
-2. Ask the owner to approve or change the PR 3 design above, then write the author brief (template below; briefs for `service/` tasks must require real command output, not placeholders, and tell the agent to install Go into its home volume if `~/.local/go` is missing). Reviewer brief afterwards.
-3. One agent task at a time. Review each agent PR by running the checks myself (vet, tests, binary, `curl`), as done for #17 and #18.
+2. Get the owner's answers to the two Phase 2 blockers above (D1-D6 placeholders, and 404/499), then write the author brief for `monitoring/docker-compose.yml` (template below; briefs must require real command output, not placeholders, and tell the agent to install Go into its home volume if `~/.local/go` is missing). Reviewer brief afterwards.
+3. One agent task at a time. Review each agent PR by running the checks myself (vet, tests, binary, `curl`), as done for #17, #18, #22, #25 and #26.
 4. Update this section at the end of every session.
 
 **Restarting the agents** (they stop when their terminals close; the `--rm` containers are throwaway, the volumes keep the registration and clone). Each needs the exact start command from the Chatham UI ("Copy start command" on the agent row); it contains the agent's `dirName`. Shape:
