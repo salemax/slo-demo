@@ -139,3 +139,39 @@ go vet ./...
 go test ./...
 go build ./...
 ```
+
+## Docker
+
+Multi-stage build: `golang:1.27.1` (matching `go.mod` / `.tool-versions`) to
+cross-compile a static binary (`CGO_ENABLED=0`), copied into
+`gcr.io/distroless/static-debian12:nonroot` — no shell, no package manager,
+runs as `nonroot:nonroot`. Both base images publish `linux/amd64` and
+`linux/arm64`, and both are pinned by tag **and** digest (verified against
+the registry, not from memory). Cross-compilation uses the Go toolchain's
+own `GOARCH` support via `--platform=$BUILDPLATFORM` + `TARGETOS`/
+`TARGETARCH`, not QEMU.
+
+```sh
+# Multi-platform build (needs a docker-container buildx builder, not the
+# default "docker" driver, which can't do multi-platform output):
+docker buildx create --name multiarch --driver docker-container --use # once
+docker buildx build --platform linux/amd64,linux/arm64 -t slo-demo-service .
+
+# Build + load the native-arch image to run it locally:
+docker buildx build --platform linux/amd64 -t slo-demo-service --load .
+
+# PORT is fixed at 8080 (EXPOSE'd); ADMIN_ADDR defaults to 0.0.0.0:8081
+# *inside* the image (the loopback default would be unreachable from
+# outside the container). The admin API has no authentication, so never
+# publish 8081 beyond localhost:
+docker run -d --name slo-demo \
+  -p 8080:8080 \
+  -p 127.0.0.1:8081:8081 \
+  slo-demo-service
+
+curl -s localhost:8080/healthz
+curl -s localhost:8081/admin/faults   # reachable only via the loopback-published port
+curl -s -o /dev/null -w '%{http_code}\n' localhost:8080/admin/faults  # 404, not on the public port
+
+docker stop slo-demo && docker rm slo-demo
+```

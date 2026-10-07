@@ -92,7 +92,7 @@ A restarted agent came back online (owner, 2026-10-05). Not verified: that the U
   - optionally scoped per route.
 - [x] `/healthz` and `/metrics` endpoints (skeleton: process metrics only; SLO metrics come in PR 2)
 - [x] Unit tests for handlers and fault injection logic
-- [ ] Multi-stage Dockerfile building `linux/arm64` and `linux/amd64`
+- [x] Multi-stage Dockerfile building `linux/arm64` and `linux/amd64`
 - [ ] Load generator in `loadgen/` producing steady traffic. Agent proposes the tool, **(owner)** approves.
 
 **Done when:**
