@@ -93,7 +93,7 @@ A restarted agent came back online (owner, 2026-10-05). Not verified: that the U
 - [x] `/healthz` and `/metrics` endpoints (skeleton: process metrics only; SLO metrics come in PR 2)
 - [x] Unit tests for handlers and fault injection logic
 - [x] Multi-stage Dockerfile building `linux/arm64` and `linux/amd64`
-- [ ] Load generator in `loadgen/` producing steady traffic. Agent proposes the tool, **(owner)** approves.
+- [x] Load generator in `loadgen/` producing steady traffic. Agent proposes the tool, **(owner)** approves. Open-loop Go program, standard library only (D9).
 
 **Done when:**
 - `curl /metrics` shows histogram buckets and counters.
@@ -228,7 +228,7 @@ Agents: if a task depends on a `TBD` row, stop and ask.
 | D6 | Burn-rate alert windows and thresholds | Page: 14.4x over 1h and 5m; page: 6x over 6h and 30m; ticket: 1x over 3d and 6h (long and short window must both exceed) | placeholder 2026-10-05 |
 | D7 | License | Apache-2.0 | decided 2026-10-01 |
 | D8 | Backstage plugin architecture | TBD | open |
-| D9 | Load generator tool | TBD | open |
+| D9 | Load generator tool | Small Go program in loadgen/, decided 2026-10-07 | decided 2026-10-07 |
 | D10 | Credentials for Chatham agents. Options: API key with a spend limit (safest), or Pro login (grey zone under Anthropic's terms). Cloud agents must use an API key. | Pro token from `claude setup-token` | decided 2026-10-03 |
 | D11 | Isolation for local agents | Docker container on the owner's Mac (`docs/chatham/`); Docker for compose checks deferred to Phase 2 | decided 2026-10-03 |
 | D12 | Second model for review (Codex/OpenCode) or two Claude agents with different roles | Two Claude agents with different roles | decided 2026-10-03 |
@@ -260,3 +260,4 @@ Append-only. Format: `YYYY-MM-DD — decision — reason`.
 - 2026-10-05 — Client-cancelled requests are recorded as `code="499"` — found in review of PR #18: a handler that returned early on a cancelled context was recorded as a fast `200`, inflating both SLIs. Whether 499 is a valid event is a Phase 2 decision.
 - 2026-10-05 — Placeholder fault injection API for Phase 1: admin server on ADMIN_ADDR (default 127.0.0.1:8081), GET/PUT/DELETE /admin/faults, rules per route ("all", /api/fast, /api/slow) with error_rate and fixed latency_ms, gauges fault_injection_error_ratio and fault_injection_added_latency_seconds — chosen by the author agent on the owner's recommendation; owner may change.
 - 2026-10-05 — Fault injection merged (PR #22) with the placeholder admin API and gauge names from the earlier decision-log line; no auth on the admin port, loopback by default — acceptable for a local demo, must be revisited before the service runs anywhere shared.
+- 2026-10-07 — D9: load generator is a small open-loop Go program in `loadgen/` (standard library only), not k6 or vegeta — owner approved; one language and toolchain with the service, and open-loop so injected latency cannot lower the offered rate. Defaults (20 req/s, /api/fast 80 / /api/slow 20, 5s timeout, 1000 in-flight cap) are placeholders.
