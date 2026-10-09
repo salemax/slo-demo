@@ -49,6 +49,60 @@ done after 30.002s: sent=600 2xx=600 3xx=0 4xx=0 5xx=0 errors=0 dropped=0 sent[/
 `errors` counts requests that got no HTTP response, such as timeouts or
 refused connections. A second Ctrl-C while waiting exits immediately.
 
+## Docker
+
+Multi-stage build mirroring `service/Dockerfile`: `golang:1.27.1` (matching
+`loadgen/go.mod` / `.tool-versions`) cross-compiles a static binary
+(`CGO_ENABLED=0`), which is copied into
+`gcr.io/distroless/static-debian12:nonroot` — no shell, no package manager,
+runs as `nonroot:nonroot`. Both base images publish `linux/amd64` and
+`linux/arm64`, and both are pinned by tag **and** digest, verified against
+the registry rather than from memory. Cross-compilation uses the Go
+toolchain's own `GOARCH` support via `--platform=$BUILDPLATFORM` +
+`TARGETOS`/`TARGETARCH`, not QEMU.
+
+The image has no `EXPOSE` and no `ENV` defaults: loadgen listens on nothing,
+and baking its flag defaults into the image would fork owner placeholders
+into a second place. One consequence: the built-in default target
+`http://localhost:8080` is the *container itself*, so every container run
+must pass a target.
+
+```sh
+# Multi-platform build (needs a docker-container buildx builder, not the
+# default "docker" driver, which can't do multi-platform output):
+docker buildx create --name multiarch --driver docker-container --use # once
+docker buildx build --platform linux/amd64,linux/arm64 -t slo-demo-loadgen .
+
+# Build + load the native-arch image to run it locally:
+docker buildx build --platform linux/arm64 -t slo-demo-loadgen --load .
+```
+
+Settings are passed exactly as outside the container — `LOADGEN_*` env vars,
+or flags appended after the image name (flags win):
+
+```sh
+docker network create slo-demo-net
+docker run -d --name svc --network slo-demo-net --network-alias service \
+  slo-demo-service
+
+# env vars
+docker run --rm --network slo-demo-net \
+  -e LOADGEN_TARGET=http://service:8080 -e LOADGEN_DURATION=30s \
+  slo-demo-loadgen
+
+# or flags
+docker run --rm --network slo-demo-net \
+  slo-demo-loadgen -target http://service:8080 -rate 50 -duration 30s
+
+# against a service running on the host instead of in a container
+docker run --rm --network host slo-demo-loadgen -target http://127.0.0.1:8080
+```
+
+`docker stop` sends `SIGTERM`, which loadgen handles like Ctrl-C: it stops
+sending, drains in-flight requests and prints the summary, then exits `0`.
+Because the summary goes to the container's stderr, read it with
+`docker logs` for a detached container.
+
 ## Test
 
 ```sh
