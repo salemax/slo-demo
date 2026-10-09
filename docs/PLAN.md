@@ -37,10 +37,11 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 - Test run: the author opened **PR #10** (README one-liner), the reviewer reviewed it and posted 3 questions in the channel. PR #10 was merged on 2026-10-05.
 - Findings: agents open PRs and post reviews as `salemax` through `GH_TOKEN`, not as `agent-chatham[bot]` (so author, reviewer and owner look the same on GitHub). `CLAUDE_CODE_OAUTH_TOKEN` is the working variable name for the `setup-token` token. In a container, `agentchatham register` needs `AGENT_CHATHAM_KEY_SECRET` (no keychain). A failed register can leave a stale duplicate agent in the UI; delete the one that stays offline.
 
-**Next task: add `loadgen` to `monitoring/docker-compose.yml`** (author brief written 2026-10-09; `[~]` once an agent picks it up). It finishes the first Phase 2 item. The agent does not edit this file; the owner's Claude Code session ticks the item after the PR is merged.
+**The compose stack is complete (#29, #30, #32).** `docker compose -f monitoring/docker-compose.yml up -d --build` runs the service, loadgen, Prometheus and Grafana; setup is in `monitoring/README.md`. The next Phase 2 items (recording rules, alerts, `promtool` tests, dashboard) are blocked on the owner items below, and no agent task is in progress.
 
-Owner items that block the rules after it:
+Owner items that block the rules:
 - D2-D6 are still placeholders. Review and change any before the Phase 2 rules are written. The recording rules, bucket boundaries, burn-rate windows and dashboards all derive from them.
+- Loadgen timeout (5s) equals the top bucket (D5): raise the timeout above 5s, or add a bucket above 5s. Needed before the latency rules.
 - D1 is decided for 404 and `499` (bad events), but whether *other* 4xx (400, 405) are bad is unconfirmed. The recorded wording "good = 2xx/3xx" treats them as bad; confirm or correct.
 
 **Still open:**
@@ -123,7 +124,7 @@ A restarted agent came back online (owner, 2026-10-05). Not verified: that the U
 
 ## Phase 2: Monitoring stack
 
-- [~] `monitoring/docker-compose.yml` with Prometheus, Grafana, the service and loadgen (all arm64-compatible). Prometheus, Grafana and the service are in (#29); `loadgen/Dockerfile` is in (#30); loadgen in the compose stack is the open part.
+- [x] `monitoring/docker-compose.yml` with Prometheus, Grafana, the service and loadgen (all arm64-compatible). Service, Prometheus and Grafana (#29), `loadgen/Dockerfile` (#30), loadgen in the stack (#32). Reviewed by running on arm64: about 20 req/s at an 80/20 split in Prometheus after 75 s. `mem_limit: 128m` on loadgen is a placeholder.
 - [ ] Recording rules:
   - SLIs over multiple windows,
   - error budget remaining,
