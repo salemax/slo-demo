@@ -1,10 +1,10 @@
 # Monitoring stack
 
 Local Docker Compose stack: the demo service (built from `service/Dockerfile`),
-Prometheus scraping its `/metrics`, and Grafana with a provisioned Prometheus
-datasource. No recording rules, alerts or dashboards yet. Those depend on the
-owner's SLO decisions (D1-D6 in `docs/PLAN.md`). The load generator is not part
-of the stack yet.
+the load generator (built from `loadgen/Dockerfile`), Prometheus scraping the
+service's `/metrics`, and Grafana with a provisioned Prometheus datasource. No
+recording rules, alerts or dashboards yet. Those depend on the owner's SLO
+decisions (D1-D6 in `docs/PLAN.md`).
 
 ## Setup
 
@@ -44,7 +44,7 @@ curl -s localhost:9090/api/v1/query --data-urlencode 'query=http_requests_total'
 ```
 
 `http_requests_total` has no series until the service has served at least one
-request. The scrape interval (15s) is a placeholder; see `prometheus/prometheus.yml`.
+request (loadgen sends the first ones within a second of starting). The scrape interval (15s) is a placeholder; see `prometheus/prometheus.yml`.
 
 ## Startup
 
@@ -61,6 +61,23 @@ curl -s localhost:9090/api/v1/targets | jq -c '.data.activeTargets[] | {job: .la
 `restart: unless-stopped` restarts the service after a crash, and its counters
 then start from zero. `rate()` handles this as a counter reset, but keep it in
 mind for the burn-rate rules in Phase 2.
+
+## Load generator
+
+`loadgen` starts with the stack and sends traffic to `http://service:8080`
+with the default rate, route mix and timeout from `loadgen/` (owner
+placeholders, not set in the compose file). It publishes no ports. To stop or
+restart it alone, leaving the rest of the stack running:
+
+```sh
+docker compose -f monitoring/docker-compose.yml stop loadgen    # prints its summary to the logs
+docker compose -f monitoring/docker-compose.yml logs loadgen
+docker compose -f monitoring/docker-compose.yml start loadgen
+```
+
+The loadgen's 5 s client timeout equals the top histogram bucket (5 s, D5).
+A request it abandons is recorded by the service as `499`, which D1 counts as
+not good. Its duration lands at about 5 s, on the edge of the top bucket.
 
 ## Stop
 

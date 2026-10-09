@@ -1,5 +1,5 @@
-# Local monitoring stack: the demo service, Prometheus and Grafana.
-# The load generator is added once loadgen/ has a Dockerfile.
+# Local monitoring stack: the demo service, the load generator, Prometheus
+# and Grafana.
 #
 # Usage (from the repo root):
 #   cp monitoring/.env.example monitoring/.env   # then set a real password
@@ -19,6 +19,24 @@ services:
       - "127.0.0.1:8080:8080"
       # Admin API (fault injection). Never publish beyond loopback.
       - "127.0.0.1:8081:8081"
+    restart: unless-stopped
+
+  loadgen:
+    build:
+      context: ../loadgen
+    image: slo-demo-loadgen:local
+    environment:
+      # The image's built-in default (localhost:8080) is the loadgen container
+      # itself. Rate, route mix and timeout are deliberately not set here:
+      # their defaults are owner placeholders that live only in the Go code.
+      LOADGEN_TARGET: http://service:8080
+    # PLACEHOLDER, from docker stats (see the PR): 10-16 MiB at the default
+    # rate, about 23 MiB when every request hangs until the 5s timeout, and
+    # 77 MiB at the 1000 in-flight cap. The worst case scales with
+    # max-in-flight, not with the rate: revisit this if the cap changes.
+    mem_limit: 128m
+    depends_on:
+      - service
     restart: unless-stopped
 
   prometheus:
