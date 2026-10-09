@@ -9,10 +9,13 @@ FROM --platform=$BUILDPLATFORM golang:1.27.1@sha256:162be5298a40ed317005c8339c6d
 
 WORKDIR /src
 
-# Only go.mod, with no go.sum: loadgen is standard library only, so the
-# module has no dependencies to verify and `go mod download` is a no-op
-# kept for the day it does. Adding a dependency means adding go.sum to this
-# COPY and to .dockerignore — otherwise the build fails on a missing sum.
+# Only go.mod, with no go.sum: loadgen is standard library only, so there is
+# no go.sum to copy (COPY would fail on the missing file) and `go mod
+# download` is a no-op, kept so the dependency-caching layer already exists
+# the day a dependency appears. Add go.sum to this COPY at that point. The
+# build does not strictly need it — go.sum arrives with `COPY . .` below and
+# `go build` verifies against it — but without it this layer resolves modules
+# unverified and is not invalidated when go.sum alone changes.
 COPY go.mod ./
 RUN go mod download
 
