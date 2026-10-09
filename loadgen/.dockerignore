@@ -1,0 +1,10 @@
+# Deny everything, then allow only what the build needs: the module files
+# and the Go packages. Keeps README/test fixtures and any stray local file
+# out of the build context, so editing them does not invalidate the cache.
+# go.sum does not exist yet (no dependencies) — listed so it is picked up
+# automatically if one is ever added.
+*
+!go.mod
+!go.sum
+!cmd/
+!internal/
