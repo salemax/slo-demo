@@ -1,0 +1,13 @@
+global:
+  # PLACEHOLDER (owner decision): 15s is Prometheus' common default, not a
+  # tuned value. It bounds the shortest usable rate() window (needs >= 2
+  # samples, so >= ~4x this), which matters for the burn-rate windows later.
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Only the demo service. No rules, alerts or SLO values here yet.
+  - job_name: slo-demo-service
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["service:8080"]

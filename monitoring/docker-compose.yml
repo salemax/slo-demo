@@ -1,0 +1,56 @@
+# Local monitoring stack: the demo service, Prometheus and Grafana.
+# The load generator is added once loadgen/ has a Dockerfile.
+#
+# Usage (from the repo root):
+#   cp monitoring/.env.example monitoring/.env   # then set a real password
+#   docker compose -f monitoring/docker-compose.yml up -d --build
+#
+# Every port is published on 127.0.0.1 only: this is a local demo, and the
+# service's admin API (8081) has no authentication at all.
+
+name: slo-demo
+
+services:
+  service:
+    build:
+      context: ../service
+    image: slo-demo-service:local
+    ports:
+      - "127.0.0.1:8080:8080"
+      # Admin API (fault injection). Never publish beyond loopback.
+      - "127.0.0.1:8081:8081"
+    restart: unless-stopped
+
+  prometheus:
+    # Tag matches promtool in .tool-versions, so rule tests run against the
+    # same version that evaluates the rules. Digest is the multi-arch index
+    # (amd64 + arm64 verified in the registry, see the PR).
+    image: prom/prometheus:v3.15.0@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    depends_on:
+      - service
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:13.2.3@sha256:b28bae15e219c998fb0e0424ed724930cc61b1f61fb404d47c862f9a23f9e572
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      # No fallback on purpose: without monitoring/.env Grafana would start
+      # with the well-known admin/admin login.
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in monitoring/.env (copy monitoring/.env.example)}
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  prometheus-data:
+  grafana-data:
