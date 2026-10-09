@@ -46,6 +46,22 @@ curl -s localhost:9090/api/v1/query --data-urlencode 'query=http_requests_total'
 `http_requests_total` has no series until the service has served at least one
 request. The scrape interval (15s) is a placeholder; see `prometheus/prometheus.yml`.
 
+## Startup
+
+`up -d` returning does not mean the stack is ready. The service has no
+healthcheck (distroless image, no shell), so for the first seconds Prometheus
+may not answer yet, and then reports `slo-demo-service` as `unknown` (not
+scraped yet) or `down` until a scrape succeeds. Wait for:
+
+```sh
+curl -s localhost:9090/api/v1/targets | jq -c '.data.activeTargets[] | {job: .labels.job, health}'
+# expect: {"job":"slo-demo-service","health":"up"}
+```
+
+`restart: unless-stopped` restarts the service after a crash, and its counters
+then start from zero. `rate()` handles this as a counter reset, but keep it in
+mind for the burn-rate rules in Phase 2.
+
 ## Stop
 
 ```sh
