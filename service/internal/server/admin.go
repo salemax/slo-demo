@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strings"
 )
@@ -41,8 +42,15 @@ func (fs *faultStore) handlePutFaults(w http.ResponseWriter, r *http.Request) {
 		writeFaultError(w, status, msg)
 		return
 	}
-	if dec.More() {
-		writeFaultError(w, http.StatusBadRequest, "body must contain a single JSON object")
+	// Decode reads exactly one JSON value and leaves whatever follows it in
+	// the stream, so trailing bytes have to be rejected explicitly. dec.More()
+	// is not enough: it answers "is there another element in the value I am
+	// inside", so a stray '}' or ']' reads as a closer and reports false --
+	// that is how `{"rules":[]}}` used to be accepted. Requiring io.EOF from
+	// the next token rejects every trailing byte instead.
+	if _, err := dec.Token(); !errors.Is(err, io.EOF) {
+		status, msg := trailingDataResponse(err)
+		writeFaultError(w, status, msg)
 		return
 	}
 
@@ -83,6 +91,17 @@ func decodeErrorResponse(err error) (int, string) {
 		return http.StatusBadRequest, "invalid value for field \"" + typeErr.Field + "\""
 	}
 	return http.StatusBadRequest, "invalid request body"
+}
+
+// trailingDataResponse maps the error from the post-decode io.EOF check. The
+// body is bad either way, but a body that parsed fine and only ran into the
+// size limit while being read past deserves 413 rather than a confusing 400.
+func trailingDataResponse(err error) (int, string) {
+	var maxErr *http.MaxBytesError
+	if errors.As(err, &maxErr) {
+		return http.StatusRequestEntityTooLarge, "request body too large"
+	}
+	return http.StatusBadRequest, "body must contain a single JSON object"
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

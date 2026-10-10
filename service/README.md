@@ -53,8 +53,9 @@ for alternatives considered). Do not expose `ADMIN_ADDR` beyond the host.
   Body: `{"rules":[{"route":"...","error_rate":0.0-1.0,"latency_ms":0-10000}]}`.
   `route` is exactly one of `"all"`, `"/api/fast"`, `"/api/slow"`; at most
   one rule per route, a route-specific rule overrides `"all"`. Unknown
-  fields, malformed JSON, and bodies over 1 MiB are rejected with a 4xx and
-  a short JSON error; an invalid body never partially applies.
+  fields, malformed JSON, anything after the first JSON value (`{...}}`,
+  two objects in one body), and bodies over 1 MiB are rejected with a 4xx
+  and a short JSON error; an invalid body never partially applies.
 - `DELETE /admin/faults` — clear all faults (equivalent to `PUT` with no
   rules).
 
