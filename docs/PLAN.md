@@ -48,7 +48,7 @@ Owner items that block the rules:
 - Dockerfile and container usage (multi-arch build, published ports, `ADMIN_ADDR` in a container): `service/README.md`, "Docker".
 - `go-gate` (from `go.yml`, #28) is **not** a required check yet: the `main` ruleset requires only `gitleaks`. Owner: add `go-gate` to the `initial` ruleset.
 - Agents cannot push files under `.github/workflows/` (the fine-grained PAT has no `Workflows` permission, kept that way per D11). Workflow changes go through the owner's Claude Code session or the owner.
-- Admin API: trailing data after the `PUT /admin/faults` body (the #22 nit, `{"rules":[]}}`) is rejected since #35. Still open: `PUT null` returns `200` and clears all faults, and top-level non-objects (`[]`, `"x"`) get a misleading error message.
+- Admin API body validation from the #22 nit is fixed: trailing data (`{"rules":[]}}`) is rejected since #35, and `PUT null` and other non-object bodies (`[]`, `"x"`) are rejected with a clear message since #37. Not changed, owner may want it: an empty body answers `invalid request body` rather than naming the cause.
 - Owner: D8 (Backstage plugin architecture) before the plugin itself is built.
 - Unverified: whether Anthropic's terms allow a Pro token in a third-party tool (accepted risk, see decision log). Owner should note the expiry date of the fine-grained GitHub token and renew it before then.
 - Remove the `@yarnpkg/core` pin in `backstage/package.json` when backstage/backstage#35964 is fixed.
