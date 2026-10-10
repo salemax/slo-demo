@@ -15,7 +15,7 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 - Fault injection, adjustable at runtime (#22): admin API `GET`/`PUT`/`DELETE /admin/faults` on a separate server, `ADMIN_ADDR` default `127.0.0.1:8081`, rules per route (`all`, `/api/fast`, `/api/slow`) with `error_rate` and fixed `latency_ms`, gauges `fault_injection_error_ratio` and `fault_injection_added_latency_seconds`. No auth on the admin port. Reviewed by running it.
 - Multi-stage, multi-arch Dockerfile for `service/` (#25). Reviewed by running it: the pinned base-image digests matched the registry, the `linux/amd64,linux/arm64` build succeeded, the native arm64 image ran, the admin API was reachable only on the loopback-published port, and `SIGTERM` exited 0. The amd64 binary was not run by the reviewer.
 - Load generator in `loadgen/` (#26): open-loop Go program, standard library only, own module. Open-loop means requests are scheduled from the clock and never wait for earlier responses, so injected latency shows up in the latency SLI instead of quietly lowering the offered rate; only the in-flight cap can reduce what is sent, and refused requests are counted as `dropped`. It calls only the mix routes, never `/healthz`, `/metrics` or `/admin/*` (D1). **Every default is a placeholder** (rate 20/s, mix `/api/fast` 80 / `/api/slow` 20, 5 s client timeout, 1000 in-flight cap) and the owner may change any of them. One interaction to note: the 5 s timeout equals the top histogram bucket (D5), so a request slower than that is recorded as `499`.
-- Go CI workflow `go.yml` (#19): vet, race tests, build, `go mod tidy -diff` on PRs touching `service/`. `loadgen/` therefore has no CI.
+- Go CI workflow `go.yml` (#19, extended in #28): vet, race tests, build, `go mod tidy -diff` on every PR, no path filter, as a matrix over `service` and `loadgen`. A `go-gate` job gives branch protection one stable check name.
 - Agent Chatham CLI bumped to 3.19.2 in `docs/chatham/Dockerfile` (#24, build checked).
 
 **Phase 2 started (2026-10-09), first parallel agent test (two authors, disjoint directories; a deliberate exception to the one-task rule):**
@@ -46,7 +46,7 @@ Owner items that block the rules:
 
 **Still open:**
 - Dockerfile and container usage (multi-arch build, published ports, `ADMIN_ADDR` in a container): `service/README.md`, "Docker".
-- `go.yml` is **not** a required check: a path-filtered workflow that is skipped reports no status, so requiring it would block unrelated PRs. Owner decision: leave optional, drop the path filter, or add an always-running gate job.
+- `go-gate` (from `go.yml`, #28) is **not** a required check yet: the `main` ruleset requires only `gitleaks`. Owner: add `go-gate` to the `initial` ruleset.
 - Agents cannot push files under `.github/workflows/` (the fine-grained PAT has no `Workflows` permission, kept that way per D11). Workflow changes go through the owner's Claude Code session or the owner.
 - Minor known nit from #22, not fixed: `PUT {"rules":[]}}` (stray closing brace) is accepted.
 - Owner: D8 (Backstage plugin architecture) before the plugin itself is built.
@@ -164,7 +164,7 @@ A restarted agent came back online (owner, 2026-10-05). Not verified: that the U
 
 - [ ] Helm chart for the service (plus monitoring components as needed)
 - [ ] Local cluster with kind (arm64)
-- [ ] GitHub Actions CI (Go checks workflow for `service/` is done, PR #19; not a required check yet):
+- [ ] GitHub Actions CI (Go checks workflow for `service/` and `loadgen/` is done, PRs #19 and #28; `go-gate` not a required check yet):
   - lint, test, build,
   - multi-arch image push to GHCR,
   - `helm lint` and chart tests,
@@ -285,3 +285,4 @@ Append-only. Format: `YYYY-MM-DD — decision — reason`.
 - 2026-10-09 — D1 changed: 404 and `499` are bad events (valid but not good), so good = 2xx/3xx instead of status < 500 — owner decision. Consequences noted: scanners or typos on unmatched routes burn budget, and a shorter loadgen timeout manufactures `499`s. Whether other 4xx are bad is unconfirmed.
 - 2026-10-09 — Two author agents ran in parallel on disjoint directories (`monitoring/`, `loadgen/`), an exception to the one-task rule, as a test — owner request. Both PRs (#29, #30) were reviewed by running them on arm64 before merge; agents were told not to edit this file so the PRs could not conflict.
 - 2026-10-09 — Scrape interval 15s, job name `slo-demo-service` and Prometheus 3.15.0 (matches promtool in `.tool-versions`) kept as proposed in #29 — implied by the owner merging the PR (not an explicit answer); the interval remains a placeholder until the burn-rate windows are final.
+- 2026-10-07 — `go.yml` path filter dropped, Go checks run on every PR as a `service`/`loadgen` matrix, and a `go-gate` job is the one stable check name for branch protection (PR #28, merged by the owner). This replaces the 2026-10-05 line on the path filter. A skipped path-filtered workflow reports no status, so it could never be required, and matrix job names change when a module is added. `go-gate` is not yet a required check.
