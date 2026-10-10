@@ -11,6 +11,11 @@ import (
 // maxFaultsBodyBytes bounds PUT /admin/faults bodies.
 const maxFaultsBodyBytes = 1 << 20 // 1 MiB
 
+// errNotAnObject answers every body that is not a JSON object: `null`, an
+// array, a string, a number or a bool. `{}` is an object and stays valid --
+// it clears all faults, like DELETE (see README).
+const errNotAnObject = "body must be a JSON object"
+
 // newAdminHandler builds the admin-only mux: GET/PUT/DELETE /admin/faults.
 // Callers must serve this on its own *http.Server and listener (see
 // cmd/server) -- it must never be reachable from the public mux, and it
@@ -36,10 +41,19 @@ func (fs *faultStore) handlePutFaults(w http.ResponseWriter, r *http.Request) {
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
 
-	var cfg faultConfig
+	// Decoded into a pointer, not a value: encoding/json treats a JSON `null`
+	// as a no-op for a non-pointer target, so `PUT null` would decode without
+	// error, leave the struct zero and apply an empty configuration -- the
+	// same silent wipe #35 fixed for trailing data. A pointer target makes the
+	// two distinguishable: `null` nils it, `{}` does not.
+	var cfg *faultConfig
 	if err := dec.Decode(&cfg); err != nil {
 		status, msg := decodeErrorResponse(err)
 		writeFaultError(w, status, msg)
+		return
+	}
+	if cfg == nil {
+		writeFaultError(w, http.StatusBadRequest, errNotAnObject)
 		return
 	}
 	// Decode reads exactly one JSON value and leaves whatever follows it in
@@ -88,6 +102,12 @@ func decodeErrorResponse(err error) (int, string) {
 	}
 	var typeErr *json.UnmarshalTypeError
 	if errors.As(err, &typeErr) {
+		// Field is empty when the top-level value has the wrong type (a body
+		// of `[]`, `0` or `"x"`), which would otherwise answer with the
+		// unreadable `invalid value for field ""`.
+		if typeErr.Field == "" {
+			return http.StatusBadRequest, errNotAnObject
+		}
 		return http.StatusBadRequest, "invalid value for field \"" + typeErr.Field + "\""
 	}
 	return http.StatusBadRequest, "invalid request body"
