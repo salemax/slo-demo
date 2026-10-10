@@ -176,6 +176,14 @@ func TestFaultValidation(t *testing.T) {
 		]}`},
 		{"unknown field", `{"rules":[{"route":"/api/fast","error_rate":0,"latency_ms":0,"extra":true}]}`},
 		{"malformed JSON", `{"rules":[`},
+		// Trailing bytes after the first JSON value. A stray closer is the
+		// case dec.More() misses, because it reads '}' or ']' as closing the
+		// value it believes it is inside.
+		{"trailing closing brace", `{"rules":[]}}`},
+		{"trailing closing bracket", `{"rules":[]}]`},
+		{"trailing comma", `{"rules":[]},`},
+		{"trailing garbage", `{"rules":[]}garbage`},
+		{"second JSON object", `{"rules":[]} {"rules":[]}`},
 		{"oversize body", `{"rules":[{"route":"/api/fast","error_rate":0,"latency_ms":0` + strings.Repeat(" ", 2<<20) + `}]}`},
 	}
 
@@ -302,4 +310,58 @@ func TestConcurrentPutsAndRequestsDoNotRace(t *testing.T) {
 	}
 	close(stop)
 	wg.Wait()
+}
+
+// TestFaultsRejectTrailingData pins the status and the message for bodies that
+// hold more than one JSON value, including the stray-closer case that was
+// accepted before (known nit from PR #22).
+func TestFaultsRejectTrailingData(t *testing.T) {
+	bodies := []string{
+		`{"rules":[]}}`,
+		`{"rules":[]}]`,
+		`{"rules":[]},`,
+		`{"rules":[]}garbage`,
+		`{"rules":[]} {"rules":[]}`,
+		`{"rules":[]} []`,
+	}
+
+	for _, body := range bodies {
+		t.Run(body, func(t *testing.T) {
+			_, admin := newHandlers(fakeSleeper(new([]time.Duration)), fixedChance(0))
+
+			rec := putFaults(t, admin, body)
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+			}
+			if !strings.Contains(rec.Body.String(), "body must contain a single JSON object") {
+				t.Fatalf("message = %s, want the single-object error", rec.Body.String())
+			}
+		})
+	}
+}
+
+// TestFaultsTrailingWhitespaceOverLimit covers the one case where the
+// trailing-data check must not answer 400: the body parsed fine, but reading
+// past it ran into the size limit, so the honest answer is 413.
+func TestFaultsTrailingWhitespaceOverLimit(t *testing.T) {
+	_, admin := newHandlers(fakeSleeper(new([]time.Duration)), fixedChance(0))
+
+	rec := putFaults(t, admin, `{"rules":[]}`+strings.Repeat(" ", 2<<20))
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusRequestEntityTooLarge, rec.Body.String())
+	}
+}
+
+// TestFaultsAcceptTrailingWhitespace guards the fix against over-rejecting:
+// whitespace and a trailing newline are not trailing data.
+func TestFaultsAcceptTrailingWhitespace(t *testing.T) {
+	_, admin := newHandlers(fakeSleeper(new([]time.Duration)), fixedChance(0))
+
+	rec := putFaults(t, admin, `{"rules":[{"route":"/api/fast","error_rate":0.25,"latency_ms":10}]}`+"  \n\t\n")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if !strings.Contains(getFaults(admin).Body.String(), `"error_rate":0.25`) {
+		t.Fatal("a body with trailing whitespace was not applied")
+	}
 }
