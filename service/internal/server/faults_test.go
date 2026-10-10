@@ -184,6 +184,13 @@ func TestFaultValidation(t *testing.T) {
 		{"trailing comma", `{"rules":[]},`},
 		{"trailing garbage", `{"rules":[]}garbage`},
 		{"second JSON object", `{"rules":[]} {"rules":[]}`},
+		// Bodies that are not a JSON object. `null` is the dangerous one:
+		// encoding/json decodes it into a value target without error.
+		{"null body", `null`},
+		{"array body", `[]`},
+		{"string body", `"x"`},
+		{"number body", `0`},
+		{"bool body", `true`},
 		{"oversize body", `{"rules":[{"route":"/api/fast","error_rate":0,"latency_ms":0` + strings.Repeat(" ", 2<<20) + `}]}`},
 	}
 
@@ -363,5 +370,64 @@ func TestFaultsAcceptTrailingWhitespace(t *testing.T) {
 	}
 	if !strings.Contains(getFaults(admin).Body.String(), `"error_rate":0.25`) {
 		t.Fatal("a body with trailing whitespace was not applied")
+	}
+}
+
+// TestFaultsRejectNonObjectBodies pins the status and the message for bodies
+// that parse as JSON but are not an object. Before the pointer target, `null`
+// returned 200 and cleared every rule.
+func TestFaultsRejectNonObjectBodies(t *testing.T) {
+	bodies := []string{`null`, `[]`, `[{"route":"all"}]`, `"x"`, `0`, `true`}
+
+	for _, body := range bodies {
+		t.Run(body, func(t *testing.T) {
+			_, admin := newHandlers(fakeSleeper(new([]time.Duration)), fixedChance(0))
+			putFaults(t, admin, `{"rules":[{"route":"/api/fast","error_rate":0.25,"latency_ms":10}]}`)
+
+			rec := putFaults(t, admin, body)
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+			}
+			if !strings.Contains(rec.Body.String(), "body must be a JSON object") {
+				t.Fatalf("message = %s, want the not-an-object error", rec.Body.String())
+			}
+			if !strings.Contains(getFaults(admin).Body.String(), `"error_rate":0.25`) {
+				t.Fatalf("configuration changed after a rejected PUT: %s", getFaults(admin).Body.String())
+			}
+		})
+	}
+}
+
+// TestFaultsEmptyObjectClearsFaults pins the behaviour the change must not
+// break: `{}` and an explicit `"rules":null` are objects, and the README
+// documents a PUT with no rules as equivalent to DELETE.
+func TestFaultsEmptyObjectClearsFaults(t *testing.T) {
+	for _, body := range []string{`{}`, `{"rules":null}`, `{"rules":[]}`} {
+		t.Run(body, func(t *testing.T) {
+			_, admin := newHandlers(fakeSleeper(new([]time.Duration)), fixedChance(0))
+			putFaults(t, admin, `{"rules":[{"route":"/api/fast","error_rate":0.25,"latency_ms":10}]}`)
+
+			rec := putFaults(t, admin, body)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusOK, rec.Body.String())
+			}
+			if got := getFaults(admin).Body.String(); !strings.Contains(got, `"rules":[]`) {
+				t.Fatalf("faults not cleared: %s", got)
+			}
+		})
+	}
+}
+
+// TestFaultsUnknownFieldStillRejected guards the pointer target: a Decoder
+// option must keep applying when the destination is a **faultConfig.
+func TestFaultsUnknownFieldStillRejected(t *testing.T) {
+	_, admin := newHandlers(fakeSleeper(new([]time.Duration)), fixedChance(0))
+
+	rec := putFaults(t, admin, `{"rules":[],"nope":1}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "unknown field") {
+		t.Fatalf("message = %s, want the unknown-field error", rec.Body.String())
 	}
 }

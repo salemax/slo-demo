@@ -54,8 +54,10 @@ for alternatives considered). Do not expose `ADMIN_ADDR` beyond the host.
   `route` is exactly one of `"all"`, `"/api/fast"`, `"/api/slow"`; at most
   one rule per route, a route-specific rule overrides `"all"`. Unknown
   fields, malformed JSON, anything after the first JSON value (`{...}}`,
-  two objects in one body), and bodies over 1 MiB are rejected with a 4xx
-  and a short JSON error; an invalid body never partially applies.
+  two objects in one body), a body that is not an object (`null`, `[]`,
+  `"x"`, `0`), and bodies over 1 MiB are rejected with a 4xx and a short
+  JSON error; an invalid body never partially applies. `{}` *is* an object
+  and is accepted: like `DELETE`, it clears all faults.
 - `DELETE /admin/faults` — clear all faults (equivalent to `PUT` with no
   rules).
 
