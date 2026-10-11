@@ -12,9 +12,10 @@
 # Naming follows level:metric:operations. Every series carries an `slo`
 # label ("availability" or "latency") so alerts and dashboards can join on it.
 #
-# No traffic -> no data: with zero valid requests the ratios are empty, not
-# 0 and not 1. A full outage therefore looks like "no data" here; the
-# alerting rules must cover it with up / absent(), not with these ratios.
+# No traffic is never "0% errors". If the service is up but idle, the ratios
+# are 0/0 = NaN. If it is down and its series have gone stale, they are empty
+# (no data). Either way a comparison like `> 14.4` is false, so a full outage
+# burns no budget here; the alerting rules must cover it with up / absent().
 
 groups:
   # One group: rules in a group are evaluated in order, so the burn rates

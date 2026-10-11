@@ -100,8 +100,34 @@ tests:
           - labels: '{slo="availability"}'
             value: 0
 
-  # No requests at all (e.g. the service is down and never scraped): no
-  # data, not 0 and not 1. Alerting must catch this with up / absent().
+  # Service up and scraped, but idle: the counters exist and stop growing,
+  # so every rate is 0 and every ratio is 0/0 = NaN (not 0, not empty).
+  # promtool cannot match NaN directly (NaN != NaN), so count the series
+  # whose value is not equal to itself: that is exactly the NaN ones.
+  - name: idle service gives NaN
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{route="/api/fast",method="GET",code="200"}'
+        values: '100x30'
+      - series: 'http_request_duration_seconds_bucket{route="/api/fast",method="GET",code="200",le="0.3"}'
+        values: '100x30'
+      - series: 'http_request_duration_seconds_count{route="/api/fast",method="GET",code="200"}'
+        values: '100x30'
+    promql_expr_test:
+      - expr: count(slo:sli_error:ratio_rate5m != slo:sli_error:ratio_rate5m)
+        eval_time: 20m
+        exp_samples:
+          - labels: '{}'
+            value: 2
+      - expr: count(slo:error_budget_burn_rate:ratio_rate5m != slo:error_budget_burn_rate:ratio_rate5m)
+        eval_time: 20m
+        exp_samples:
+          - labels: '{}'
+            value: 2
+
+  # No request series at all (the service was never scraped, or its series
+  # went stale): no data, not 0 and not 1. Alerting must catch this with
+  # up / absent().
   - name: no traffic gives no data
     interval: 1m
     input_series:

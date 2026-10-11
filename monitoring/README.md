@@ -93,8 +93,9 @@ SLO series. Each one has an `slo` label, `availability` or `latency`:
 | `slo:error_budget_remaining:ratio_rate28d` | 1 = budget untouched, 0 = spent, below 0 = SLO missed |
 
 Windows `<w>`: 5m, 30m, 1h, 6h, 3d (the D6 burn-rate windows) and 28d (D4).
-With no traffic at all the ratios are empty (no data), not 0: a full outage
-does not show up here, so the alerting rules will need `up` / `absent()`.
+With no traffic the ratios are never 0: an idle service gives NaN (0/0) and
+a service whose series have gone stale gives no data. A full outage does not
+show up here, so the alerting rules will need `up` / `absent()`.
 Prometheus keeps 30 days of data (placeholder, must stay above the 28-day
 window); with the default 15 days the 28d series would silently cover less.
 
