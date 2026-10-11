@@ -6,7 +6,7 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 
 ---
 
-## Where we left off (updated 2026-10-09)
+## Where we left off (updated 2026-10-11)
 
 **Done:** Phase 0 complete: `CLAUDE.md` and this plan, `.gitignore`, gitleaks secret scanning (local hook plus CI), `.tool-versions` (golang 1.27.1, gitleaks 8.30.1, promtool 3.15.0), Apache-2.0 license, README skeleton, branch protection on `main` (ruleset `initial`: PR required, squash only, `gitleaks` check required, no force-push or deletion, no bypass), and the Chatham test run (PR #10). D1-D6 are recorded as **placeholders** (owner delegated them, see Decisions): they unblock work but are not a considered choice.
 
@@ -26,7 +26,7 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 **Findings from the reviews that the Phase 2 rules must account for:**
 - A full outage produces *no data*, not a 100% bad ratio: the service records nothing when nothing reaches it. Rules need `up{job="slo-demo-service"}` or `absent()` next to the ratio, and `http_requests_total` only exists after the first request.
 - Use `sum(rate(...))`, never `rate(sum(...))`, so counter resets after a service restart are handled.
-- The loadgen's 5s timeout equals the top bucket (D5). A request it abandons is recorded as `499` with a duration of about 5.0s, which lands in `le="5"` or `+Inf` at random. Fix options: a loadgen timeout above 5s, or a bucket above 5s. Owner decision.
+- The loadgen's 5s timeout equals the top bucket (D5). A request it abandons is recorded as `499` with a duration of about 5.0s, which lands in `le="5"` or `+Inf` at random. Owner decision 2026-10-11: raise the loadgen timeout above 5s (D5 buckets unchanged); the new value comes in its own PR.
 - Lowering the loadgen timeout creates `499` events, and `499` is a bad event under D1, so the SLI partly measures the loadgen's configuration. Keep in mind when running experiments.
 
 **Backstage (Phase 3, started early):** scaffold in `backstage/` (#15) with a workaround for upstream bug backstage/backstage#35964; catalog entry `slo-demo-service` plus a `User` entity `salemax` (#16). How to run it: README, "Backstage". The SLO plugin itself does not exist yet, and the SLO annotation is not added (its design belongs with D8).
@@ -37,12 +37,10 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 - Test run: the author opened **PR #10** (README one-liner), the reviewer reviewed it and posted 3 questions in the channel. PR #10 was merged on 2026-10-05.
 - Findings: agents open PRs and post reviews as `salemax` through `GH_TOKEN`, not as `agent-chatham[bot]` (so author, reviewer and owner look the same on GitHub). `CLAUDE_CODE_OAUTH_TOKEN` is the working variable name for the `setup-token` token. In a container, `agentchatham register` needs `AGENT_CHATHAM_KEY_SECRET` (no keychain). A failed register can leave a stale duplicate agent in the UI; delete the one that stays offline.
 
-**The compose stack is complete (#29, #30, #32).** `docker compose -f monitoring/docker-compose.yml up -d --build` runs the service, loadgen, Prometheus and Grafana; setup is in `monitoring/README.md`. The next Phase 2 items (recording rules, alerts, `promtool` tests, dashboard) are blocked on the owner items below, and no agent task is in progress.
-
-Owner items that block the rules:
-- D2-D6 are still placeholders. Review and change any before the Phase 2 rules are written. The recording rules, bucket boundaries, burn-rate windows and dashboards all derive from them.
-- Loadgen timeout (5s) equals the top bucket (D5): raise the timeout above 5s, or add a bucket above 5s. Needed before the latency rules.
-- D1 is decided for 404 and `499` (bad events), but whether *other* 4xx (400, 405) are bad is unconfirmed. The recorded wording "good = 2xx/3xx" treats them as bad; confirm or correct.
+**The compose stack is complete (#29, #30, #32).** `docker compose -f monitoring/docker-compose.yml up -d --build` runs the service, loadgen, Prometheus and Grafana; setup is in `monitoring/README.md`. The next Phase 2 items (recording rules, alerts, `promtool` tests, dashboard) were blocked on the owner items below, now answered (2026-10-11):
+- D2-D6: the placeholder values are kept as decided. The recording rules, burn-rate windows and dashboards derive from them.
+- D1: other 4xx (400, 405) are bad events too, so good = 2xx/3xx with no exceptions.
+- Loadgen timeout (5s) equals the top bucket (D5): raise the timeout above 5s. Not done yet; needed before the latency rules are relied on.
 
 **Still open:**
 - Dockerfile and container usage (multi-arch build, published ports, `ADMIN_ADDR` in a container): `service/README.md`, "Docker".
@@ -56,7 +54,7 @@ Owner items that block the rules:
 
 **How to continue in the next session**
 1. Read `CLAUDE.md` and this file, then `git switch main && git pull`. Check `gh pr list` and delete merged local branches.
-2. Check that the compose follow-up PR (loadgen in the stack) is merged, then tick the first Phase 2 item. Get the owner's answers on D2-D6 and other 4xx before writing the recording-rule briefs (template below; briefs must require real command output, not placeholders, and tell the agent to install Go into its home volume if `~/.local/go` is missing). Reviewer brief afterwards.
+2. Check that the compose follow-up PR (loadgen in the stack) is merged, then tick the first Phase 2 item. D1-D6 are decided (2026-10-11); next are the loadgen timeout PR and then the recording-rule briefs (template below; briefs must require real command output, not placeholders, and tell the agent to install Go into its home volume if `~/.local/go` is missing). Reviewer brief afterwards.
 3. One agent task at a time. Review each agent PR by running the checks myself (vet, tests, binary, `curl`), as done for #17, #18, #22, #25 and #26.
 4. Update this section at the end of every session.
 
@@ -241,12 +239,12 @@ Agents: if a task depends on a `TBD` row, stop and ask.
 
 | # | Decision | Value | Status |
 |---|----------|-------|--------|
-| D1 | Availability SLI definition (good / valid events) | Good = responses with status 2xx/3xx; valid = all requests except `/healthz` and `/metrics`. Unmatched routes (404) and client-cancelled requests (`499`) are valid and **not** good. Other 4xx: unconfirmed, treated as not good. | decided 2026-10-09 for 404 and 499; other 4xx to confirm |
-| D2 | Latency SLI definition (threshold, which requests count) | Good = request served in <= 300 ms; same valid events as D1 | placeholder 2026-10-05 |
-| D3 | SLO targets | Availability 99.5%, latency 95% of requests <= 300 ms | placeholder 2026-10-05 |
-| D4 | Compliance window (rolling vs calendar, length) | Rolling 28 days | placeholder 2026-10-05 |
-| D5 | Histogram bucket boundaries (must include D2 threshold) | Seconds: 0.005, 0.01, 0.025, 0.05, 0.1, 0.2, 0.3, 0.5, 1, 2.5, 5 | placeholder 2026-10-05 |
-| D6 | Burn-rate alert windows and thresholds | Page: 14.4x over 1h and 5m; page: 6x over 6h and 30m; ticket: 1x over 3d and 6h (long and short window must both exceed) | placeholder 2026-10-05 |
+| D1 | Availability SLI definition (good / valid events) | Good = responses with status 2xx/3xx; valid = all requests except `/healthz` and `/metrics`. Every other status is valid and **not** good, including unmatched routes (404), client-cancelled requests (`499`) and other 4xx (400, 405). | decided 2026-10-09 for 404 and 499; other 4xx decided 2026-10-11 |
+| D2 | Latency SLI definition (threshold, which requests count) | Good = request served in <= 300 ms; same valid events as D1 | decided 2026-10-11 (placeholder from 2026-10-05 kept) |
+| D3 | SLO targets | Availability 99.5%, latency 95% of requests <= 300 ms | decided 2026-10-11 (placeholder from 2026-10-05 kept) |
+| D4 | Compliance window (rolling vs calendar, length) | Rolling 28 days | decided 2026-10-11 (placeholder from 2026-10-05 kept) |
+| D5 | Histogram bucket boundaries (must include D2 threshold) | Seconds: 0.005, 0.01, 0.025, 0.05, 0.1, 0.2, 0.3, 0.5, 1, 2.5, 5 | decided 2026-10-11 (placeholder from 2026-10-05 kept) |
+| D6 | Burn-rate alert windows and thresholds | Page: 14.4x over 1h and 5m; page: 6x over 6h and 30m; ticket: 1x over 3d and 6h (long and short window must both exceed) | decided 2026-10-11 (placeholder from 2026-10-05 kept) |
 | D7 | License | Apache-2.0 | decided 2026-10-01 |
 | D8 | Backstage plugin architecture | TBD | open |
 | D9 | Load generator tool | Small Go program in loadgen/, decided 2026-10-07 | decided 2026-10-07 |
@@ -286,3 +284,4 @@ Append-only. Format: `YYYY-MM-DD — decision — reason`.
 - 2026-10-09 — Two author agents ran in parallel on disjoint directories (`monitoring/`, `loadgen/`), an exception to the one-task rule, as a test — owner request. Both PRs (#29, #30) were reviewed by running them on arm64 before merge; agents were told not to edit this file so the PRs could not conflict.
 - 2026-10-09 — Scrape interval 15s, job name `slo-demo-service` and Prometheus 3.15.0 (matches promtool in `.tool-versions`) kept as proposed in #29 — implied by the owner merging the PR (not an explicit answer); the interval remains a placeholder until the burn-rate windows are final.
 - 2026-10-07 — `go.yml` path filter dropped, Go checks run on every PR as a `service`/`loadgen` matrix, and a `go-gate` job is the one stable check name for branch protection (PR #28, merged by the owner). This replaces the 2026-10-05 line on the path filter. A skipped path-filtered workflow reports no status, so it could never be required, and matrix job names change when a module is added. `go-gate` is not yet a required check.
+- 2026-10-11 — D2-D6 placeholder values kept as decided; D1 other 4xx (400, 405) are bad events; the loadgen timeout will be raised above 5s rather than adding a bucket above 5s — owner decision. Unblocks the Phase 2 recording rules. Raising the timeout keeps D5 unchanged and stops abandoned requests landing in `le="5"` or `+Inf` at random.
