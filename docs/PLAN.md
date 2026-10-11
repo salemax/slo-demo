@@ -53,7 +53,7 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 
 **How to continue in the next session**
 1. Read `CLAUDE.md` and this file, then `git switch main && git pull`. Check `gh pr list` and delete merged local branches.
-2. Check that the compose follow-up PR (loadgen in the stack) is merged, then tick the first Phase 2 item. D1-D6 are decided (2026-10-11); the loadgen timeout is raised (#39); next are the recording-rule briefs (template below; briefs must require real command output, not placeholders, and tell the agent to install Go into its home volume if `~/.local/go` is missing). Reviewer brief afterwards.
+2. Check that the compose follow-up PR (loadgen in the stack) is merged, then tick the first Phase 2 item. D1-D6 are decided (2026-10-11); the loadgen timeout is raised (#39) and the recording rules are in (#40); next are the alerting-rule briefs (template below; briefs must require real command output, not placeholders, and tell the agent to install Go into its home volume if `~/.local/go` is missing). Reviewer brief afterwards.
 3. One agent task at a time. Review each agent PR by running the checks myself (vet, tests, binary, `curl`), as done for #17, #18, #22, #25 and #26.
 4. Update this section at the end of every session.
 
@@ -122,12 +122,13 @@ A restarted agent came back online (owner, 2026-10-05). Not verified: that the U
 ## Phase 2: Monitoring stack
 
 - [x] `monitoring/docker-compose.yml` with Prometheus, Grafana, the service and loadgen (all arm64-compatible). Service, Prometheus and Grafana (#29), `loadgen/Dockerfile` (#30), loadgen in the stack (#32). Reviewed by running on arm64: about 20 req/s at an 80/20 split in Prometheus after 75 s. `mem_limit: 128m` on loadgen is a placeholder.
-- [ ] Recording rules:
+- [x] Recording rules:
   - SLIs over multiple windows,
   - error budget remaining,
   - burn rate.
+  Done in #40: `monitoring/prometheus/rules/slo-recording.yml` (D1-D4, D6 windows), with `promtool test rules` tests for them. Prometheus retention set to 30d (placeholder, must stay above D4) so the 28d series cover the full window. With no traffic the ratios are NaN (idle) or empty (stale), never 0, so the alerting rules must add `up` / `absent()`.
 - [ ] Alerting rules using multi-window, multi-burn-rate. Thresholds are an **(owner)** decision.
-- [ ] `promtool test rules` unit tests for the recording and alerting rules
+- [ ] `promtool test rules` unit tests for the recording and alerting rules (recording rules done in #40; alerting rules still to come)
 - [ ] Grafana dashboard provisioned as code, showing SLI vs SLO, budget remaining and burn rate
 - [ ] Documented experiments, e.g. "inject 5% errors for N minutes and observe budget burn"
 - [ ] *Optional:* a one-month Agent Chatham Developer plan to test cloud sandboxes, running integration tests on several branches in parallel, then cancel. **(owner)** decides. Before paying, check two things:

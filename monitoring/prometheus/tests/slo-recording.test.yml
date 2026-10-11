@@ -1,0 +1,142 @@
+# Unit tests for rules/slo-recording.yml. Run from the repo root:
+#   promtool test rules monitoring/prometheus/tests/slo-recording.test.yml
+#
+# Counters grow linearly, so rate() is exact and the expected ratios can be
+# worked out by hand; each case states the arithmetic. promtool compares
+# floats exactly and 0.03 / 0.005 evaluates to 5.999999999999995, so ratio
+# checks wrap the rule in round(..., 0.001); round() drops the metric name.
+
+rule_files:
+  - ../rules/slo-recording.yml
+
+evaluation_interval: 1m
+
+
+tests:
+  # 100 requests/min: 96x 200 and 1x 301 are good (D1: 2xx/3xx); 1x 500,
+  # 1x 404 (unmatched route) and 1x 499 (client gave up) are bad.
+  # Availability error ratio 3/100 = 0.03, burn 0.03 / 0.005 = 6.
+  # Latency: 90 of 100 requests <= 300 ms -> error 0.1, burn 0.1 / 0.05 = 2.
+  - name: mixed traffic, short windows
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{route="/api/fast",method="GET",code="200"}'
+        values: '0+96x60'
+      - series: 'http_requests_total{route="/api/fast",method="GET",code="301"}'
+        values: '0+1x60'
+      - series: 'http_requests_total{route="/api/slow",method="GET",code="500"}'
+        values: '0+1x60'
+      - series: 'http_requests_total{route="unmatched",method="GET",code="404"}'
+        values: '0+1x60'
+      - series: 'http_requests_total{route="/api/slow",method="GET",code="499"}'
+        values: '0+1x60'
+      - series: 'http_request_duration_seconds_bucket{route="/api/fast",method="GET",code="200",le="0.3"}'
+        values: '0+90x60'
+      - series: 'http_request_duration_seconds_count{route="/api/fast",method="GET",code="200"}'
+        values: '0+100x60'
+    promql_expr_test:
+      - expr: slo:objective:ratio
+        eval_time: 10m
+        exp_samples:
+          - labels: 'slo:objective:ratio{slo="availability"}'
+            value: 0.995
+          - labels: 'slo:objective:ratio{slo="latency"}'
+            value: 0.95
+      - expr: round(slo:sli_error:ratio_rate5m, 0.001)
+        eval_time: 10m
+        exp_samples:
+          - labels: '{slo="availability"}'
+            value: 0.03
+          - labels: '{slo="latency"}'
+            value: 0.1
+      - expr: round(slo:error_budget_burn_rate:ratio_rate5m, 0.001)
+        eval_time: 10m
+        exp_samples:
+          - labels: '{slo="availability"}'
+            value: 6
+          - labels: '{slo="latency"}'
+            value: 2
+      - expr: round(slo:error_budget_burn_rate:ratio_rate1h, 0.001)
+        eval_time: 60m
+        exp_samples:
+          - labels: '{slo="availability"}'
+            value: 6
+          - labels: '{slo="latency"}'
+            value: 2
+
+  # Only 400 and 405 as errors: D1 (2026-10-11) counts every 4xx as bad.
+  # 2 bad of 100 -> 0.02.
+  - name: other 4xx are bad events
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{route="/api/fast",method="GET",code="200"}'
+        values: '0+98x30'
+      - series: 'http_requests_total{route="/api/fast",method="GET",code="400"}'
+        values: '0+1x30'
+      - series: 'http_requests_total{route="unmatched",method="POST",code="405"}'
+        values: '0+1x30'
+    promql_expr_test:
+      - expr: round(slo:sli_error:ratio_rate5m{slo="availability"}, 0.001)
+        eval_time: 10m
+        exp_samples:
+          - labels: '{slo="availability"}'
+            value: 0.02
+
+  # No bad series exists yet: the ratio must be 0, not empty.
+  - name: no errors yet gives zero, not no data
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{route="/api/fast",method="GET",code="200"}'
+        values: '0+100x30'
+    promql_expr_test:
+      - expr: round(slo:sli_error:ratio_rate5m{slo="availability"}, 0.001)
+        eval_time: 10m
+        exp_samples:
+          - labels: '{slo="availability"}'
+            value: 0
+      - expr: round(slo:error_budget_burn_rate:ratio_rate5m{slo="availability"}, 0.001)
+        eval_time: 10m
+        exp_samples:
+          - labels: '{slo="availability"}'
+            value: 0
+
+  # Service up and scraped, but idle: the counters exist and stop growing,
+  # so every rate is 0 and every ratio is 0/0 = NaN (not 0, not empty).
+  # promtool cannot match NaN directly (NaN != NaN), so count the series
+  # whose value is not equal to itself: that is exactly the NaN ones.
+  - name: idle service gives NaN
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{route="/api/fast",method="GET",code="200"}'
+        values: '100x30'
+      - series: 'http_request_duration_seconds_bucket{route="/api/fast",method="GET",code="200",le="0.3"}'
+        values: '100x30'
+      - series: 'http_request_duration_seconds_count{route="/api/fast",method="GET",code="200"}'
+        values: '100x30'
+    promql_expr_test:
+      - expr: count(slo:sli_error:ratio_rate5m != slo:sli_error:ratio_rate5m)
+        eval_time: 20m
+        exp_samples:
+          - labels: '{}'
+            value: 2
+      - expr: count(slo:error_budget_burn_rate:ratio_rate5m != slo:error_budget_burn_rate:ratio_rate5m)
+        eval_time: 20m
+        exp_samples:
+          - labels: '{}'
+            value: 2
+
+  # No request series at all (the service was never scraped, or its series
+  # went stale): no data, not 0 and not 1. Alerting must catch this with
+  # up / absent().
+  - name: no traffic gives no data
+    interval: 1m
+    input_series:
+      - series: 'up{job="slo-demo-service"}'
+        values: '0x30'
+    promql_expr_test:
+      - expr: slo:sli_error:ratio_rate5m
+        eval_time: 10m
+        exp_samples: []
+      - expr: slo:error_budget_remaining:ratio_rate28d
+        eval_time: 10m
+        exp_samples: []

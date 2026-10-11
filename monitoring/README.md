@@ -2,9 +2,9 @@
 
 Local Docker Compose stack: the demo service (built from `service/Dockerfile`),
 the load generator (built from `loadgen/Dockerfile`), Prometheus scraping the
-service's `/metrics`, and Grafana with a provisioned Prometheus datasource. No
-recording rules, alerts or dashboards yet. Those depend on the owner's SLO
-decisions (D1-D6 in `docs/PLAN.md`).
+service's `/metrics` and evaluating the SLO recording rules, and Grafana with a
+provisioned Prometheus datasource. No alerts or dashboards yet. All SLO values
+come from the owner's decisions (D1-D6 in `docs/PLAN.md`).
 
 ## Setup
 
@@ -79,6 +79,39 @@ The loadgen's client timeout is 10 s, twice the top histogram bucket (5 s, D5).
 A request it abandons is recorded by the service as `499`, which D1 counts as
 not good. Its duration is about 10 s, so it always lands in `+Inf`, never in
 `le="5"`.
+
+## SLO recording rules
+
+`prometheus/rules/slo-recording.yml` turns the raw request metrics into the
+SLO series. Each one has an `slo` label, `availability` or `latency`:
+
+| Series | Meaning |
+|---|---|
+| `slo:objective:ratio` | target from D3 (0.995, 0.95) |
+| `slo:sli_error:ratio_rate<w>` | share of bad requests over window `<w>` |
+| `slo:error_budget_burn_rate:ratio_rate<w>` | error ratio / (1 - target); 1 spends the budget in exactly 28 days |
+| `slo:error_budget_remaining:ratio_rate28d` | 1 = budget untouched, 0 = spent, below 0 = SLO missed |
+
+Windows `<w>`: 5m, 30m, 1h, 6h, 3d (the D6 burn-rate windows) and 28d (D4).
+With no traffic the ratios are never 0: an idle service gives NaN (0/0) and
+a service whose series have gone stale gives no data. A full outage does not
+show up here, so the alerting rules will need `up` / `absent()`.
+Prometheus keeps 30 days of data (placeholder, must stay above the 28-day
+window); with the default 15 days the 28d series would silently cover less.
+
+Test the rules (no Docker needed, `promtool` is pinned in `.tool-versions`):
+
+```sh
+promtool check rules monitoring/prometheus/rules/slo-recording.yml
+promtool test rules monitoring/prometheus/tests/*.test.yml
+```
+
+Query them in the running stack once the 5m window has data (about 5 minutes
+after start):
+
+```sh
+curl -s 'localhost:9090/api/v1/query' --data-urlencode 'query=slo:error_budget_burn_rate:ratio_rate5m' | jq -c '.data.result[] | {slo: .metric.slo, value: .value[1]}'
+```
 
 ## Stop
 

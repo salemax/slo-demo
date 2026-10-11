@@ -44,8 +44,17 @@ services:
     # same version that evaluates the rules. Digest is the multi-arch index
     # (amd64 + arm64 verified in the registry, see the PR).
     image: prom/prometheus:v3.15.0@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e
+    # The image's default arguments plus retention. The default (15d) is
+    # shorter than the 28-day SLO window (D4), so the 28d rules would quietly
+    # cover only 15 days. PLACEHOLDER: 30d is D4 plus a margin; keep it above
+    # D4 if the window changes.
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
       - prometheus-data:/prometheus
     ports:
       - "127.0.0.1:9090:9090"
