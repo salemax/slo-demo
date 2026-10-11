@@ -15,7 +15,7 @@ func TestParseConfigDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Target != "http://localhost:8080" || cfg.Rate != 20 || cfg.Timeout != 5*time.Second ||
+	if cfg.Target != "http://localhost:8080" || cfg.Rate != 20 || cfg.Timeout != 10*time.Second ||
 		cfg.Duration != 0 || cfg.MaxInFlight != 1000 || cfg.Report != 10*time.Second {
 		t.Fatalf("unexpected defaults: %+v", cfg)
 	}

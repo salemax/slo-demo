@@ -31,7 +31,7 @@ cd loadgen && go run ./cmd/loadgen -duration 30s
 | `-target` | `LOADGEN_TARGET` | `http://localhost:8080` | service base URL |
 | `-rate` | `LOADGEN_RATE` | `20` | offered requests per second |
 | `-routes` | `LOADGEN_ROUTES` | `/api/fast=80,/api/slow=20` | route mix, relative weights |
-| `-timeout` | `LOADGEN_TIMEOUT` | `5s` | per-request client timeout |
+| `-timeout` | `LOADGEN_TIMEOUT` | `10s` | per-request client timeout |
 | `-duration` | `LOADGEN_DURATION` | `0` (until SIGINT/SIGTERM) | how long to run |
 | `-max-in-flight` | `LOADGEN_MAX_IN_FLIGHT` | `1000` | concurrency cap, excess is dropped |
 | `-report` | `LOADGEN_REPORT` | `10s` | progress log interval, `0` = off |

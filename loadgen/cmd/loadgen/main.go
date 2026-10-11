@@ -61,7 +61,7 @@ func parseConfig(args []string, lookup func(string) (string, bool), stderr io.Wr
 		"offered load in requests per second (env LOADGEN_RATE)")
 	routes := fs.String("routes", env("LOADGEN_ROUTES", "/api/fast=80,/api/slow=20"),
 		"route mix as path=weight,... (env LOADGEN_ROUTES)")
-	timeout := fs.String("timeout", env("LOADGEN_TIMEOUT", "5s"),
+	timeout := fs.String("timeout", env("LOADGEN_TIMEOUT", "10s"),
 		"per-request client timeout (env LOADGEN_TIMEOUT)")
 	duration := fs.String("duration", env("LOADGEN_DURATION", "0"),
 		"how long to run; 0 = until SIGINT/SIGTERM (env LOADGEN_DURATION)")
