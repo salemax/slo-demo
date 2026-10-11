@@ -75,9 +75,10 @@ docker compose -f monitoring/docker-compose.yml logs loadgen
 docker compose -f monitoring/docker-compose.yml start loadgen
 ```
 
-The loadgen's 5 s client timeout equals the top histogram bucket (5 s, D5).
+The loadgen's client timeout is 10 s, twice the top histogram bucket (5 s, D5).
 A request it abandons is recorded by the service as `499`, which D1 counts as
-not good. Its duration lands at about 5 s, on the edge of the top bucket.
+not good. Its duration is about 10 s, so it always lands in `+Inf`, never in
+`le="5"`.
 
 ## Stop
 

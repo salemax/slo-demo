@@ -31,7 +31,7 @@ services:
       # their defaults are owner placeholders that live only in the Go code.
       LOADGEN_TARGET: http://service:8080
     # PLACEHOLDER, from docker stats (see the PR): 10-16 MiB at the default
-    # rate, about 23 MiB when every request hangs until the 5s timeout, and
+    # rate, about 23 MiB when every request hung until the old 5s timeout, and
     # 77 MiB at the 1000 in-flight cap. The worst case scales with
     # max-in-flight, not with the rate: revisit this if the cap changes.
     mem_limit: 128m
