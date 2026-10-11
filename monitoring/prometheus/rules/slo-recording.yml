@@ -1,0 +1,156 @@
+# SLO recording rules for slo-demo-service (PLAN.md Phase 2).
+#
+# Every value here comes from the Decisions table in docs/PLAN.md:
+#   D1  availability: good = code 2xx/3xx, valid = every recorded request
+#       (the service itself never records /healthz or /metrics)
+#   D2  latency: good = served in <= 300 ms (bucket le="0.3"), same valid events
+#   D3  objectives 99.5% (availability) and 95% (latency)
+#   D4  rolling 28 days -> the 28d window below
+#   D6  burn-rate windows 5m, 30m, 1h, 6h, 3d
+# Change a decision there first, then here.
+#
+# Naming follows level:metric:operations. Every series carries an `slo`
+# label ("availability" or "latency") so alerts and dashboards can join on it.
+#
+# No traffic -> no data: with zero valid requests the ratios are empty, not
+# 0 and not 1. A full outage therefore looks like "no data" here; the
+# alerting rules must cover it with up / absent(), not with these ratios.
+
+groups:
+  # One group: rules in a group are evaluated in order, so the burn rates
+  # and budget always use the SLI values from the same evaluation.
+  - name: slo-demo
+    rules:
+      # D3. The only place the targets appear.
+      - record: slo:objective:ratio
+        expr: vector(0.995)
+        labels:
+          slo: availability
+      - record: slo:objective:ratio
+        expr: vector(0.95)
+        labels:
+          slo: latency
+      - record: slo:error_budget:ratio
+        expr: 1 - slo:objective:ratio
+
+      - record: slo:sli_error:ratio_rate5m
+        # `or vector(0)`: before the first bad request no bad series exists,
+        # and without it the ratio would be empty instead of 0.
+        expr: |
+          (sum(rate(http_requests_total{code!~"2..|3.."}[5m])) or vector(0))
+          /
+          sum(rate(http_requests_total[5m]))
+        labels:
+          slo: availability
+      - record: slo:sli_error:ratio_rate5m
+        expr: |
+          1 - (
+            sum(rate(http_request_duration_seconds_bucket{le="0.3"}[5m]))
+            /
+            sum(rate(http_request_duration_seconds_count[5m]))
+          )
+        labels:
+          slo: latency
+      - record: slo:sli_error:ratio_rate30m
+        expr: |
+          (sum(rate(http_requests_total{code!~"2..|3.."}[30m])) or vector(0))
+          /
+          sum(rate(http_requests_total[30m]))
+        labels:
+          slo: availability
+      - record: slo:sli_error:ratio_rate30m
+        expr: |
+          1 - (
+            sum(rate(http_request_duration_seconds_bucket{le="0.3"}[30m]))
+            /
+            sum(rate(http_request_duration_seconds_count[30m]))
+          )
+        labels:
+          slo: latency
+      - record: slo:sli_error:ratio_rate1h
+        expr: |
+          (sum(rate(http_requests_total{code!~"2..|3.."}[1h])) or vector(0))
+          /
+          sum(rate(http_requests_total[1h]))
+        labels:
+          slo: availability
+      - record: slo:sli_error:ratio_rate1h
+        expr: |
+          1 - (
+            sum(rate(http_request_duration_seconds_bucket{le="0.3"}[1h]))
+            /
+            sum(rate(http_request_duration_seconds_count[1h]))
+          )
+        labels:
+          slo: latency
+      - record: slo:sli_error:ratio_rate6h
+        expr: |
+          (sum(rate(http_requests_total{code!~"2..|3.."}[6h])) or vector(0))
+          /
+          sum(rate(http_requests_total[6h]))
+        labels:
+          slo: availability
+      - record: slo:sli_error:ratio_rate6h
+        expr: |
+          1 - (
+            sum(rate(http_request_duration_seconds_bucket{le="0.3"}[6h]))
+            /
+            sum(rate(http_request_duration_seconds_count[6h]))
+          )
+        labels:
+          slo: latency
+      - record: slo:sli_error:ratio_rate3d
+        expr: |
+          (sum(rate(http_requests_total{code!~"2..|3.."}[3d])) or vector(0))
+          /
+          sum(rate(http_requests_total[3d]))
+        labels:
+          slo: availability
+      - record: slo:sli_error:ratio_rate3d
+        expr: |
+          1 - (
+            sum(rate(http_request_duration_seconds_bucket{le="0.3"}[3d]))
+            /
+            sum(rate(http_request_duration_seconds_count[3d]))
+          )
+        labels:
+          slo: latency
+      - record: slo:sli_error:ratio_rate28d
+        expr: |
+          (sum(rate(http_requests_total{code!~"2..|3.."}[28d])) or vector(0))
+          /
+          sum(rate(http_requests_total[28d]))
+        labels:
+          slo: availability
+      - record: slo:sli_error:ratio_rate28d
+        expr: |
+          1 - (
+            sum(rate(http_request_duration_seconds_bucket{le="0.3"}[28d]))
+            /
+            sum(rate(http_request_duration_seconds_count[28d]))
+          )
+        labels:
+          slo: latency
+
+      # Burn rate = observed error ratio / allowed error ratio. 1 means the
+      # budget lasts exactly the 28-day window; 14.4 means it is gone in
+      # about 2 days (28d / 14.4).
+      - record: slo:error_budget_burn_rate:ratio_rate5m
+        expr: slo:sli_error:ratio_rate5m / on(slo) group_left() slo:error_budget:ratio
+      - record: slo:error_budget_burn_rate:ratio_rate30m
+        expr: slo:sli_error:ratio_rate30m / on(slo) group_left() slo:error_budget:ratio
+      - record: slo:error_budget_burn_rate:ratio_rate1h
+        expr: slo:sli_error:ratio_rate1h / on(slo) group_left() slo:error_budget:ratio
+      - record: slo:error_budget_burn_rate:ratio_rate6h
+        expr: slo:sli_error:ratio_rate6h / on(slo) group_left() slo:error_budget:ratio
+      - record: slo:error_budget_burn_rate:ratio_rate3d
+        expr: slo:sli_error:ratio_rate3d / on(slo) group_left() slo:error_budget:ratio
+      - record: slo:error_budget_burn_rate:ratio_rate28d
+        expr: slo:sli_error:ratio_rate28d / on(slo) group_left() slo:error_budget:ratio
+
+      # Share of the 28-day budget still unspent: 1 = untouched, 0 = spent,
+      # negative = SLO missed for the window. Only correct if Prometheus
+      # keeps at least 28 days of data (see the retention flag in
+      # docker-compose.yml); with less it silently covers a shorter window.
+      - record: slo:error_budget_remaining:ratio_rate28d
+        expr: 1 - slo:error_budget_burn_rate:ratio_rate28d

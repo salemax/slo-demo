@@ -1,0 +1,39 @@
+# Unit tests for rules/slo-recording.yml. Run from the repo root:
+#   promtool test rules monitoring/prometheus/tests/slo-budget-28d.test.yml
+#
+# Counters grow linearly, so rate() is exact and the expected ratios can be
+# worked out by hand; each case states the arithmetic. promtool compares
+# floats exactly and 0.03 / 0.005 evaluates to 5.999999999999995, so ratio
+# checks wrap the rule in round(..., 0.001); round() drops the metric name.
+
+rule_files:
+  - ../rules/slo-recording.yml
+
+# 1h, not 1m: evaluating every rule (including the 28d rates) once a minute
+# for 29 simulated days took 80 s. The 28d window only needs hourly samples.
+evaluation_interval: 1h
+
+
+tests:
+  # 28-day budget: 4000 requests/h, 10 of them 500 -> error 0.0025, half of
+  # the 0.005 budget -> burn 0.5, remaining 0.5.
+  # Latency: 3900 of 4000 <= 300 ms -> error 0.025 -> burn 0.5, remaining 0.5.
+  - name: error budget remaining over 28 days
+    interval: 1h
+    input_series:
+      - series: 'http_requests_total{route="/api/fast",method="GET",code="200"}'
+        values: '0+3990x700'
+      - series: 'http_requests_total{route="/api/fast",method="GET",code="500"}'
+        values: '0+10x700'
+      - series: 'http_request_duration_seconds_bucket{route="/api/fast",method="GET",code="200",le="0.3"}'
+        values: '0+3900x700'
+      - series: 'http_request_duration_seconds_count{route="/api/fast",method="GET",code="200"}'
+        values: '0+4000x700'
+    promql_expr_test:
+      - expr: round(slo:error_budget_remaining:ratio_rate28d, 0.001)
+        eval_time: 29d
+        exp_samples:
+          - labels: '{slo="availability"}'
+            value: 0.5
+          - labels: '{slo="latency"}'
+            value: 0.5
