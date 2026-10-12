@@ -2,9 +2,9 @@
 
 Local Docker Compose stack: the demo service (built from `service/Dockerfile`),
 the load generator (built from `loadgen/Dockerfile`), Prometheus scraping the
-service's `/metrics` and evaluating the SLO recording rules, and Grafana with a
-provisioned Prometheus datasource. Alerts show in Prometheus; no dashboards yet. All SLO values
-come from the owner's decisions (D1-D6 in `docs/PLAN.md`).
+service's `/metrics` and evaluating the SLO rules, and Grafana with a
+provisioned Prometheus datasource and SLO dashboard. All SLO values come
+from the owner's decisions (D1-D6 in `docs/PLAN.md`).
 
 ## Setup
 
@@ -130,12 +130,34 @@ window shows the burn matters, the short one that it is still going on.
 An idle service (NaN ratios) fires nothing. A down service has no ratios at
 all, so only `SLOTargetDown` / `SLOTargetAbsent` report it. They wait 1m
 (`for: 1m`): a single missed scrape shows as `pending` and clears without
-paging; the alert fires only after `up` has been failing for a full minute. No Alertmanager
-runs in this stack: alerts show in Prometheus only.
+paging; the alert fires only after `up` has been failing for a full minute.
+No Alertmanager runs in this stack: alerts show in Prometheus and on the
+dashboard only.
 
 ```sh
 curl -s localhost:9090/api/v1/alerts | jq -c '.data.alerts[] | {alert: .labels.alertname, slo: .labels.slo, state}'
 # expect nothing while the stack is healthy
+```
+
+## Dashboard
+
+Grafana loads the `slo-demo SLOs` dashboard at startup, no clicks needed:
+<http://localhost:3000/d/slo-demo>. The JSON in
+`grafana/provisioning/dashboards/json/slo-demo.json` is the source of truth;
+the dashboard is read-only in the UI (Grafana refuses to save it), so change
+the file and Grafana re-reads it within 30s.
+
+It reads only the recording-rule series (`slo:*`) and `ALERTS`: pending and
+firing alerts on top, then one row per SLO with the 28d SLI against the
+target, the 28d error budget left, and the burn rate for 5m, 30m, 1h, 6h and
+3d with the D6 thresholds (1, 6, 14.4) as dashed lines. An idle service
+(NaN) or missing series shows as a gap or "No data (idle or no samples)",
+never as 0 or a green 100%. Colours, units and the 30s refresh are
+placeholders.
+
+```sh
+curl -s -u admin:<password> localhost:3000/api/search | jq -c '.[] | {uid, title}'
+# expect: {"uid":"slo-demo","title":"slo-demo SLOs"}
 ```
 
 ## Stop
