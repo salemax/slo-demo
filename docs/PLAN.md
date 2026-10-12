@@ -6,7 +6,7 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 
 ---
 
-## Where we left off (updated 2026-10-11)
+## Where we left off (updated 2026-10-12)
 
 **Done:** Phase 0 complete: `CLAUDE.md` and this plan, `.gitignore`, gitleaks secret scanning (local hook plus CI), `.tool-versions` (golang 1.27.1, gitleaks 8.30.1, promtool 3.15.0), Apache-2.0 license, README skeleton, branch protection on `main` (ruleset `initial`: PR required, squash only, `gitleaks` check required, no force-push or deletion, no bypass), and the Chatham test run (PR #10). D1-D6 are recorded as **placeholders** (owner delegated them, see Decisions): they unblock work but are not a considered choice.
 
@@ -31,7 +31,9 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 
 **Backstage (Phase 3, started early):** scaffold in `backstage/` (#15) with a workaround for upstream bug backstage/backstage#35964; catalog entry `slo-demo-service` plus a `User` entity `salemax` (#16). How to run it: README, "Backstage". The SLO plugin itself does not exist yet, and the SLO annotation is not added (its design belongs with D8).
 
-**Agent Chatham is set up and works (2026-10-03):**
+**Agent Chatham changed on 2026-10-12 (owner report, not verified from this session):** the reviewer agent was removed, so only the author agent remains. The owner gave Agent Chatham access to the GitHub repo through the Chatham GitHub App instead of the `GH_TOKEN` PAT, and the owner accepts this. GitHub confirms the effect: PRs #35, #37, #39 and #40 are authored by `app/agent-chatham-connect`, not `salemax`. None of them has a GitHub review. Reviews are now done by the owner and by the owner's Claude Code session, which runs each agent PR before merge. D12 is superseded (see Decisions). The setup below is the history from 2026-10-03; the reviewer parts, the PAT findings and the `GH_TOKEN` parts no longer describe the current setup. Not verified: whether the App can push under `.github/workflows/` (the PAT could not, see below) and what exact permissions the App has. Check both in the repo's GitHub App settings before relying on either.
+
+**Agent Chatham, original setup (2026-10-03):**
 - D10 Pro token, D11 Docker container, D12 two Claude agents (author and reviewer, both Sonnet 5). Definition and run instructions: `docs/chatham/`.
 - Image `slo-demo-agent` built and checked (node 24.21.0, gh 2.102.0, Claude Code 2.1.288). Both agents registered, online, each in its own container and volume (`slo-demo-agent-author`, `slo-demo-agent-reviewer`). Not verified from this session: whether the running agents still use the older 3.17.0 image, i.e. whether the owner has rebuilt and restarted them since #24.
 - Test run: the author opened **PR #10** (README one-liner), the reviewer reviewed it and posted 3 questions in the channel. PR #10 was merged on 2026-10-05.
@@ -53,7 +55,7 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 
 **How to continue in the next session**
 1. Read `CLAUDE.md` and this file, then `git switch main && git pull`. Check `gh pr list` and delete merged local branches.
-2. Check that the compose follow-up PR (loadgen in the stack) is merged, then tick the first Phase 2 item. D1-D6 are decided (2026-10-11); the loadgen timeout is raised (#39) and the recording rules are in (#40); next are the alerting-rule briefs (template below; briefs must require real command output, not placeholders, and tell the agent to install Go into its home volume if `~/.local/go` is missing). Reviewer brief afterwards.
+2. Check that the compose follow-up PR (loadgen in the stack) is merged, then tick the first Phase 2 item. D1-D6 are decided (2026-10-11); the loadgen timeout is raised (#39) and the recording rules are in (#40); next is the alerting-rules brief (template below; briefs must require real command output, not placeholders, and tell the agent to install Go into its home volume if `~/.local/go` is missing). There is no reviewer agent any more; the owner's Claude Code session reviews by running.
 3. One agent task at a time. Review each agent PR by running the checks myself (vet, tests, binary, `curl`), as done for #17, #18, #22, #25 and #26.
 4. Update this section at the end of every session.
 
@@ -178,7 +180,7 @@ A restarted agent came back online (owner, 2026-10-05). Not verified: that the U
 **Setup for Phases 1 and 2:** free plan, two local agents.
 
 - The **author** writes code. It owns the Go service, the compose stack and the rules.
-- The **reviewer** reviews the author's PRs and asks control questions.
+- The **reviewer** reviews the author's PRs and asks control questions. *Removed 2026-10-12; the owner and the owner's Claude Code session review instead.*
 
 **Concurrency:** one active task at a time. Claude Pro limits are shared with claude.ai chat, so keep briefs small and tightly scoped.
 
@@ -250,7 +252,7 @@ Agents: if a task depends on a `TBD` row, stop and ask.
 | D9 | Load generator tool | Small Go program in loadgen/, decided 2026-10-07 | decided 2026-10-07 |
 | D10 | Credentials for Chatham agents. Options: API key with a spend limit (safest), or Pro login (grey zone under Anthropic's terms). Cloud agents must use an API key. | Pro token from `claude setup-token` | decided 2026-10-03 |
 | D11 | Isolation for local agents | Docker container on the owner's Mac (`docs/chatham/`); Docker for compose checks deferred to Phase 2 | decided 2026-10-03 |
-| D12 | Second model for review (Codex/OpenCode) or two Claude agents with different roles | Two Claude agents with different roles | decided 2026-10-03 |
+| D12 | Second model for review (Codex/OpenCode) or two Claude agents with different roles | Two Claude agents with different roles. **Superseded 2026-10-12:** reviewer agent removed, one author agent remains | superseded 2026-10-12 |
 
 ## Decision log
 
@@ -286,3 +288,4 @@ Append-only. Format: `YYYY-MM-DD — decision — reason`.
 - 2026-10-07 — `go.yml` path filter dropped, Go checks run on every PR as a `service`/`loadgen` matrix, and a `go-gate` job is the one stable check name for branch protection (PR #28, merged by the owner). This replaces the 2026-10-05 line on the path filter. A skipped path-filtered workflow reports no status, so it could never be required, and matrix job names change when a module is added. `go-gate` is not yet a required check.
 - 2026-10-11 — D2-D6 placeholder values kept as decided; D1 other 4xx (400, 405) are bad events; the loadgen timeout will be raised above 5s rather than adding a bucket above 5s — owner decision. Unblocks the Phase 2 recording rules. Raising the timeout keeps D5 unchanged and stops abandoned requests landing in `le="5"` or `+Inf` at random.
 - 2026-10-11 — Loadgen default timeout raised from 5s to 10s (twice the top D5 bucket) — owner approved the value. Abandoned requests now always land in `+Inf`; `mem_limit` is unaffected because memory is bounded by the in-flight cap, not the timeout. The value stays a placeholder like the other loadgen defaults.
+- 2026-10-12 — Reviewer agent removed; Chatham accesses the repo through its GitHub App, so agent PRs are authored by `app/agent-chatham-connect` instead of `salemax` — owner decision, reported in chat. Consequence: the author identity is now distinguishable from the owner's, which improves traceability. Review now relies on the owner plus the Claude Code session running each PR, with less independent review than D12 intended (same trade-off D12 already accepted). Open: App permissions are unchecked here; the "no `Workflows` permission" rule (2026-10-05) was about the PAT and needs re-checking for the App.
