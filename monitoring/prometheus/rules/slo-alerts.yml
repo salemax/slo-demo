@@ -1,0 +1,77 @@
+# SLO alerting rules for slo-demo-service (PLAN.md Phase 2).
+#
+# Multi-window, multi-burn-rate alerts built on the burn-rate series from
+# slo-recording.yml; no SLI math is repeated here. Pairs from D6:
+#   page    14.4x over 1h and 5m   (2% of the 28d budget in 1h)
+#   page    6x    over 6h and 30m  (5% of the 28d budget in 6h)
+#   ticket  1x    over 3d and 6h   (10% of the 28d budget in 3d)
+# Both windows must exceed the threshold. The long window proves the burn
+# is significant; the short one proves it is still happening, so the alert
+# resolves within minutes once the errors stop.
+#
+# No `for:` on the burn-rate alerts: the long window already demands
+# sustained errors, and D6 defines no extra hold time.
+#
+# `and on(slo)` keeps the two SLOs apart: availability and latency are
+# alerted separately and the alert carries the `slo` label.
+#
+# Idle service: every ratio is 0/0 = NaN and NaN > x is false, so no
+# burn-rate alert fires. A down service has no data at all, so its outage
+# is covered by the `up` / `absent()` rules at the bottom, not by burn rate.
+
+groups:
+  - name: slo-demo-alerts
+    rules:
+      - alert: SLOErrorBudgetBurnFast
+        expr: |
+          slo:error_budget_burn_rate:ratio_rate1h > 14.4
+          and on(slo)
+          slo:error_budget_burn_rate:ratio_rate5m > 14.4
+        labels:
+          severity: page
+        annotations:
+          summary: '{{ $labels.slo }} SLO: error budget burning above 14.4x over 1h and 5m'
+
+      - alert: SLOErrorBudgetBurnMedium
+        expr: |
+          slo:error_budget_burn_rate:ratio_rate6h > 6
+          and on(slo)
+          slo:error_budget_burn_rate:ratio_rate30m > 6
+        labels:
+          severity: page
+        annotations:
+          summary: '{{ $labels.slo }} SLO: error budget burning above 6x over 6h and 30m'
+
+      - alert: SLOErrorBudgetBurnSlow
+        expr: |
+          slo:error_budget_burn_rate:ratio_rate3d > 1
+          and on(slo)
+          slo:error_budget_burn_rate:ratio_rate6h > 1
+        labels:
+          severity: ticket
+        annotations:
+          summary: '{{ $labels.slo }} SLO: error budget burning above 1x over 3d and 6h'
+
+      # A dead service records no requests, so the ratios above are empty
+      # and an outage would burn no budget and page no one.
+      # `for: 1m` (owner decision on #42): with the 15s scrape interval a
+      # single missed scrape stays pending and does not page; `up` must stay
+      # 0 for a full minute. Severity `page` is set but nothing routes it yet (no
+      # Alertmanager).
+      - alert: SLOTargetDown
+        expr: up{job="slo-demo-service"} == 0
+        for: 1m
+        labels:
+          severity: page
+        annotations:
+          summary: 'slo-demo-service scrape failing: SLO burn-rate alerts are blind'
+
+      # No `up` series at all (scrape job missing or renamed): `== 0` above
+      # has nothing to compare, so it stays silent too. Same `for: 1m`.
+      - alert: SLOTargetAbsent
+        expr: absent(up{job="slo-demo-service"})
+        for: 1m
+        labels:
+          severity: page
+        annotations:
+          summary: 'no up series for job slo-demo-service: SLO burn-rate alerts are blind'

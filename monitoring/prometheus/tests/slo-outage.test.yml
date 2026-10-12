@@ -1,0 +1,117 @@
+# Unit tests for the outage alerts in rules/slo-alerts.yml (`for: 1m`).
+# Run from the repo root:
+#   promtool test rules monitoring/prometheus/tests/*.test.yml
+#
+# Kept apart from slo-alerts.test.yml because the hold time needs a finer
+# clock: rules are evaluated and `up` is scraped every 15s, as in
+# prometheus.yml. Step n of a series is at n x 15s.
+#
+# alert_rule_test lists firing alerts only, so the pending phase is checked
+# through the ALERTS series Prometheus writes for every active alert.
+
+rule_files:
+  - ../rules/slo-recording.yml
+  - ../rules/slo-alerts.yml
+
+evaluation_interval: 15s
+
+tests:
+  # Scrapes fail from step 4 (60s) on. At 90s (30s after the first failed
+  # scrape) SLOTargetDown is pending, not firing. At 120s it has been
+  # active for 1m and fires. The burn-rate alerts see no data.
+  - name: outage pages via up == 0 after 1m
+    interval: 15s
+    input_series:
+      - series: 'up{job="slo-demo-service",instance="service:8080"}'
+        values: '1x3 0x20'
+    promql_expr_test:
+      - expr: ALERTS{alertname="SLOTargetDown"}
+        eval_time: 90s
+        exp_samples:
+          - labels: 'ALERTS{alertname="SLOTargetDown",alertstate="pending",job="slo-demo-service",instance="service:8080",severity="page"}'
+            value: 1
+    alert_rule_test:
+      - eval_time: 45s
+        alertname: SLOTargetDown
+        exp_alerts: []
+      - eval_time: 90s
+        alertname: SLOTargetDown
+        exp_alerts: []
+      - eval_time: 120s
+        alertname: SLOTargetDown
+        exp_alerts:
+          - exp_labels:
+              job: slo-demo-service
+              instance: service:8080
+              severity: page
+            exp_annotations:
+              summary: 'slo-demo-service scrape failing: SLO burn-rate alerts are blind'
+      - eval_time: 5m
+        alertname: SLOTargetDown
+        exp_alerts:
+          - exp_labels:
+              job: slo-demo-service
+              instance: service:8080
+              severity: page
+            exp_annotations:
+              summary: 'slo-demo-service scrape failing: SLO burn-rate alerts are blind'
+      - eval_time: 5m
+        alertname: SLOErrorBudgetBurnFast
+        exp_alerts: []
+
+  # One failed scrape at step 4 (60s), the next one succeeds. The alert is
+  # pending for one evaluation, then resets, and never fires.
+  - name: a single failed scrape that recovers never pages
+    interval: 15s
+    input_series:
+      - series: 'up{job="slo-demo-service",instance="service:8080"}'
+        values: '1x3 0 1x20'
+    promql_expr_test:
+      - expr: ALERTS{alertname="SLOTargetDown"}
+        eval_time: 60s
+        exp_samples:
+          - labels: 'ALERTS{alertname="SLOTargetDown",alertstate="pending",job="slo-demo-service",instance="service:8080",severity="page"}'
+            value: 1
+      - expr: ALERTS{alertname="SLOTargetDown"}
+        eval_time: 75s
+        exp_samples: []
+    alert_rule_test:
+      - {eval_time: 60s, alertname: SLOTargetDown, exp_alerts: []}
+      - {eval_time: 90s, alertname: SLOTargetDown, exp_alerts: []}
+      - {eval_time: 2m, alertname: SLOTargetDown, exp_alerts: []}
+      - {eval_time: 5m, alertname: SLOTargetDown, exp_alerts: []}
+
+  # The job's `up` series goes stale at step 4 (60s), as when the target is
+  # removed from prometheus.yml: `up == 0` has nothing to compare, absent()
+  # catches it. Pending at 90s, firing at 120s.
+  - name: missing scrape job pages via absent() after 1m
+    interval: 15s
+    input_series:
+      - series: 'up{job="slo-demo-service",instance="service:8080"}'
+        values: '1x3 stale'
+      - series: 'up{job="something-else",instance="other:9090"}'
+        values: '1x20'
+    promql_expr_test:
+      - expr: ALERTS{alertname="SLOTargetAbsent"}
+        eval_time: 90s
+        exp_samples:
+          - labels: 'ALERTS{alertname="SLOTargetAbsent",alertstate="pending",job="slo-demo-service",severity="page"}'
+            value: 1
+    alert_rule_test:
+      - eval_time: 45s
+        alertname: SLOTargetAbsent
+        exp_alerts: []
+      - eval_time: 90s
+        alertname: SLOTargetAbsent
+        exp_alerts: []
+      - eval_time: 120s
+        alertname: SLOTargetAbsent
+        exp_alerts:
+          - exp_labels:
+              job: slo-demo-service
+              severity: page
+            exp_annotations:
+              summary: 'no up series for job slo-demo-service: SLO burn-rate alerts are blind'
+      - eval_time: 120s
+        alertname: SLOTargetDown
+        exp_alerts: []
