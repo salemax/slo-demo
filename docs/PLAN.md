@@ -23,6 +23,8 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 - `loadgen/Dockerfile` (#30): same pattern as the service image (distroless `static` nonroot, cross-compiled, digests re-verified). No `ENV` defaults on purpose: the built-in target `http://localhost:8080` is the container itself, so every container run must pass `LOADGEN_TARGET`. Reviewed by running it: 600 requests in 30s, `errors=0`, `SIGTERM` exits 0.
 - Loadgen is **not yet part of the compose stack**, so the first Phase 2 item is half done.
 
+**Phase 2 alerting rules are in (#42, merged 2026-10-12).** Recording rules (#40) and alerts (#42) are done; the dashboard and the experiments are next. Owner decision on #42: `for: 1m` on the two outage alerts, so a single missed 15 s scrape does not page. An idle service (NaN ratios) fires nothing, and `up` is the only signal that tells idle from healthy.
+
 **Findings from the reviews that the Phase 2 rules must account for:**
 - A full outage produces *no data*, not a 100% bad ratio: the service records nothing when nothing reaches it. Rules need `up{job="slo-demo-service"}` or `absent()` next to the ratio, and `http_requests_total` only exists after the first request.
 - Use `sum(rate(...))`, never `rate(sum(...))`, so counter resets after a service restart are handled.
@@ -55,7 +57,7 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 
 **How to continue in the next session**
 1. Read `CLAUDE.md` and this file, then `git switch main && git pull`. Check `gh pr list` and delete merged local branches.
-2. Check that the compose follow-up PR (loadgen in the stack) is merged, then tick the first Phase 2 item. D1-D6 are decided (2026-10-11); the loadgen timeout is raised (#39) and the recording rules are in (#40); next is the alerting-rules brief (template below; briefs must require real command output, not placeholders, and tell the agent to install Go into its home volume if `~/.local/go` is missing). There is no reviewer agent any more; the owner's Claude Code session reviews by running.
+2. D1-D6 are decided, the recording rules (#40) and alerting rules (#42) are merged. Next is the Grafana dashboard provisioned as code (SLI vs SLO, budget remaining, burn rate), then the documented experiments. Briefs have no role line (template below); they must require real command output, not placeholders, and tell the agent to install Go into its home volume if `~/.local/go` is missing.
 3. One agent task at a time. Review each agent PR by running the checks myself (vet, tests, binary, `curl`), as done for #17, #18, #22, #25 and #26.
 4. Update this section at the end of every session.
 
@@ -129,8 +131,8 @@ A restarted agent came back online (owner, 2026-10-05). Not verified: that the U
   - error budget remaining,
   - burn rate.
   Done in #40: `monitoring/prometheus/rules/slo-recording.yml` (D1-D4, D6 windows), with `promtool test rules` tests for them. Prometheus retention set to 30d (placeholder, must stay above D4) so the 28d series cover the full window. With no traffic the ratios are NaN (idle) or empty (stale), never 0, so the alerting rules must add `up` / `absent()`.
-- [ ] Alerting rules using multi-window, multi-burn-rate. Thresholds are an **(owner)** decision.
-- [ ] `promtool test rules` unit tests for the recording and alerting rules (recording rules done in #40; alerting rules still to come)
+- [x] Alerting rules using multi-window, multi-burn-rate. Thresholds are an **(owner)** decision. Done in #42: `monitoring/prometheus/rules/slo-alerts.yml` with `SLOErrorBudgetBurnFast` (14.4x, 1h and 5m, page), `SLOErrorBudgetBurnMedium` (6x, 6h and 30m, page) and `SLOErrorBudgetBurnSlow` (1x, 3d and 6h, ticket) from D6, plus `SLOTargetDown` (`up == 0`) and `SLOTargetAbsent` (`absent(up)`), both `for: 1m` and `page`. Alerts are visible in Prometheus only: there is no Alertmanager, so nothing routes `severity` yet.
+- [x] `promtool test rules` unit tests for the recording and alerting rules (#40 and #42: `slo-recording`, `slo-budget-28d`, `slo-alerts` and `slo-outage` test files). Reviewed by running them and by mutating the rules; the first version of #42 did not prove the medium alert, the agent added tests, and every mutation then failed them. The burn-rate alerts were not tested live (the 1h window needs about an hour of injected errors); only `SLOTargetDown` was seen firing live, by the agent.
 - [ ] Grafana dashboard provisioned as code, showing SLI vs SLO, budget remaining and burn rate
 - [ ] Documented experiments, e.g. "inject 5% errors for N minutes and observe budget burn"
 - [ ] *Optional:* a one-month Agent Chatham Developer plan to test cloud sandboxes, running integration tests on several branches in parallel, then cancel. **(owner)** decides. Before paying, check two things:
@@ -282,3 +284,4 @@ Append-only. Format: `YYYY-MM-DD — decision — reason`.
 - 2026-10-11 — D2-D6 placeholder values kept as decided; D1 other 4xx (400, 405) are bad events; the loadgen timeout will be raised above 5s rather than adding a bucket above 5s — owner decision. Unblocks the Phase 2 recording rules. Raising the timeout keeps D5 unchanged and stops abandoned requests landing in `le="5"` or `+Inf` at random.
 - 2026-10-11 — Loadgen default timeout raised from 5s to 10s (twice the top D5 bucket) — owner approved the value. Abandoned requests now always land in `+Inf`; `mem_limit` is unaffected because memory is bounded by the in-flight cap, not the timeout. The value stays a placeholder like the other loadgen defaults.
 - 2026-10-12 — Reviewer agent removed; Chatham accesses the repo through its GitHub App, so agent PRs are authored by `app/agent-chatham-connect` instead of `salemax` — owner decision, reported in chat. Consequence: the author identity is now distinguishable from the owner's, which improves traceability. Review now relies on the owner plus the Claude Code session running each PR, with less independent review than D12 intended (same trade-off D12 already accepted). Open: App permissions are unchecked here; the "no `Workflows` permission" rule (2026-10-05) was about the PAT and needs re-checking for the App.
+- 2026-10-12 — Outage alerts `SLOTargetDown` and `SLOTargetAbsent` get `for: 1m` (about four 15 s scrapes) — owner agreed. A single missed scrape would otherwise page, and a freshly reloaded job can briefly have no `up` series. The `for:` on `SLOTargetAbsent` was suggested by Claude Code, not asked for by the owner. Burn-rate alerts keep no `for:` (D6 defines none; the short window already stops flapping). `severity` labels `page` and `ticket` follow the D6 wording and are unrouted until an Alertmanager exists.
