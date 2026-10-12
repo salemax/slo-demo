@@ -179,17 +179,17 @@ A restarted agent came back online (owner, 2026-10-05). Not verified: that the U
 
 **Setup for Phases 1 and 2:** free plan, two local agents.
 
-- The **author** writes code. It owns the Go service, the compose stack and the rules.
-- The **reviewer** reviews the author's PRs and asks control questions. *Removed 2026-10-12; the owner and the owner's Claude Code session review instead.*
+- The Chatham **agent** writes code from a brief. It has no role label (removed 2026-10-12). It owns the Go service, the compose stack and the rules.
+- **Review** is done by the owner and the owner's Claude Code session, not by an agent. The reviewer agent was removed 2026-10-12.
 
 **Concurrency:** one active task at a time. Claude Pro limits are shared with claude.ai chat, so keep briefs small and tightly scoped.
 
 **Flow:**
 1. Brief posted in the channel.
-2. Author works on a branch; the owner can watch and interrupt.
-3. Author opens a PR and marks it ready for review.
-4. Reviewer posts review comments and questions.
-5. Owner answers the questions, then merges.
+2. The agent works on a branch; the owner can watch and interrupt.
+3. The agent opens a PR and marks it ready for review.
+4. Claude Code reviews it by running it and comments on the PR.
+5. Owner answers the control questions, then merges.
 
 ### Registering a local agent
 
@@ -211,7 +211,6 @@ Suggested starting point (the owner decides): author `Sonnet 5` for routine work
 ### Brief template
 
 ```
-Role: author
 Task: <what, concretely — reference the PLAN.md item>
 Location: <directories/files>
 Constraints: <versions to verify, libraries, what NOT to touch>
@@ -223,15 +222,9 @@ PR description must explain:
   - which alternatives were considered and why they were rejected
 ```
 
-### Review template
+### Review
 
-```
-Role: reviewer
-Review the PR <link> opened by <agent>. Focus on: correctness of PromQL/SLO
-math, security, and missing tests. Do not rewrite the code. Leave review
-comments and post 2-3 questions in the channel that test whether the
-author's reasoning holds.
-```
+There is no review brief and no reviewer agent. The owner's Claude Code session reviews each agent PR by running it (vet, tests, binary, `curl`, `promtool`), with a focus on PromQL and SLO math, security and missing tests. It leaves comments on the PR and asks the owner 2-3 control questions in chat.
 
 ---
 
