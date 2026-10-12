@@ -235,3 +235,149 @@ tests:
       - eval_time: 5m
         alertname: SLOTargetDown
         exp_alerts: []
+
+  # --- Medium page (6x over 6h and 30m), review of #42 ---
+  # 1000 requests/min unless stated. Availability budget 0.005, so 6x is
+  # an error ratio of 0.03.
+
+  # 33 of 1000 fail for 7h: burn 6.6 in every window. Above 6 (medium
+  # pages) but below 14.4 (fast stays silent). 6.6 sits between 6 and 7,
+  # so a threshold moved up to 7 fails this case.
+  - name: medium burn pages, fast does not
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{route="/api/fast",method="GET",code="200"}'
+        values: '0+967x420'
+      - series: 'http_requests_total{route="/api/slow",method="GET",code="500"}'
+        values: '0+33x420'
+      - series: 'http_request_duration_seconds_bucket{route="/api/fast",method="GET",code="200",le="0.3"}'
+        values: '0+1000x420'
+      - series: 'http_request_duration_seconds_count{route="/api/fast",method="GET",code="200"}'
+        values: '0+1000x420'
+    alert_rule_test:
+      - eval_time: 7h
+        alertname: SLOErrorBudgetBurnMedium
+        exp_alerts:
+          - exp_labels:
+              slo: availability
+              severity: page
+            exp_annotations:
+              summary: 'availability SLO: error budget burning above 6x over 6h and 30m'
+      - eval_time: 7h
+        alertname: SLOErrorBudgetBurnFast
+        exp_alerts: []
+
+  # 40 of 1000 fail (burn 8) for 6h, then none. 6 minutes after the stop
+  # the 30m window still burns ~6.3x (920 bad of ~29000) and the page
+  # holds; a 5m short window would already be 0. 25 minutes after the
+  # stop only the 6h window exceeds (6h ~7.4x, 30m ~1.1x): the page has
+  # resolved.
+  - name: medium, only the long window exceeds, page resolves
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{route="/api/fast",method="GET",code="200"}'
+        values: '0+960x360 346600+1000x59'
+      - series: 'http_requests_total{route="/api/slow",method="GET",code="500"}'
+        values: '0+40x360 14400x59'
+      - series: 'http_request_duration_seconds_bucket{route="/api/fast",method="GET",code="200",le="0.3"}'
+        values: '0+1000x420'
+      - series: 'http_request_duration_seconds_count{route="/api/fast",method="GET",code="200"}'
+        values: '0+1000x420'
+    promql_expr_test:
+      - expr: round(slo:error_budget_burn_rate:ratio_rate6h{slo="availability"}, 0.1) > 6
+        eval_time: 385m
+        exp_samples:
+          - labels: '{slo="availability"}'
+            value: 7.4
+    alert_rule_test:
+      - eval_time: 366m
+        alertname: SLOErrorBudgetBurnMedium
+        exp_alerts:
+          - exp_labels:
+              slo: availability
+              severity: page
+            exp_annotations:
+              summary: 'availability SLO: error budget burning above 6x over 6h and 30m'
+      - eval_time: 385m
+        alertname: SLOErrorBudgetBurnMedium
+        exp_alerts: []
+
+  # 7h clean, then 40 of 1000 fail for 50 minutes. The 30m window burns
+  # 8x, but the 6h window holds 2000 bad of 360000: burn ~1.1 < 6. No
+  # page. (A 1h long window would read 2000 / 60000 = 6.7x and page.)
+  - name: medium, only the short window exceeds, no page
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{route="/api/fast",method="GET",code="200"}'
+        values: '0+1000x420 420960+960x49'
+      - series: 'http_requests_total{route="/api/slow",method="GET",code="500"}'
+        values: '0x420 40+40x49'
+      - series: 'http_request_duration_seconds_bucket{route="/api/fast",method="GET",code="200",le="0.3"}'
+        values: '0+1000x470'
+      - series: 'http_request_duration_seconds_count{route="/api/fast",method="GET",code="200"}'
+        values: '0+1000x470'
+    promql_expr_test:
+      - expr: round(slo:error_budget_burn_rate:ratio_rate30m{slo="availability"}, 0.1)
+        eval_time: 470m
+        exp_samples:
+          - labels: '{slo="availability"}'
+            value: 8
+    alert_rule_test:
+      - eval_time: 470m
+        alertname: SLOErrorBudgetBurnMedium
+        exp_alerts: []
+
+  # --- Slow ticket (1x over 3d and 6h), review of #42 ---
+  # 5000 requests per 5m step. Budget 0.005, so 1x is an error ratio of
+  # 0.005. Only the 3d and 6h windows matter, so a 5m step is enough.
+
+  # 15 per 1000 fail for 6h (burn 3), then 1 per 1000 (burn 0.2) for 7h.
+  # At 13h the 3d window (all 13h of data) holds 5820 bad of 780000:
+  # burn ~1.5 > 1, but the 6h window burns 0.2. No ticket. The background
+  # errors keep the 6h ratio above 0, so `6h > 0` instead of `> 1` fails.
+  - name: slow, only the long window exceeds, no ticket
+    interval: 5m
+    input_series:
+      - series: 'http_requests_total{route="/api/fast",method="GET",code="200"}'
+        values: '0+4925x72 359595+4995x83'
+      - series: 'http_requests_total{route="/api/slow",method="GET",code="500"}'
+        values: '0+75x72 5405+5x83'
+      - series: 'http_request_duration_seconds_bucket{route="/api/fast",method="GET",code="200",le="0.3"}'
+        values: '0+5000x155'
+      - series: 'http_request_duration_seconds_count{route="/api/fast",method="GET",code="200"}'
+        values: '0+5000x155'
+    promql_expr_test:
+      - expr: round(slo:error_budget_burn_rate:ratio_rate3d{slo="availability"}, 0.1) > 1
+        eval_time: 13h
+        exp_samples:
+          - labels: '{slo="availability"}'
+            value: 1.5
+    alert_rule_test:
+      - eval_time: 13h
+        alertname: SLOErrorBudgetBurnSlow
+        exp_alerts: []
+
+  # 2 days clean, then 8 per 1000 fail for 6h: the 6h window burns 1.6,
+  # but the 3d window (54h of data) holds 2880 bad of 3240000: burn ~0.18.
+  # No ticket.
+  - name: slow, only the short window exceeds, no ticket
+    interval: 5m
+    input_series:
+      - series: 'http_requests_total{route="/api/fast",method="GET",code="200"}'
+        values: '0+5000x576 2884960+4960x71'
+      - series: 'http_requests_total{route="/api/slow",method="GET",code="500"}'
+        values: '0x576 40+40x71'
+      - series: 'http_request_duration_seconds_bucket{route="/api/fast",method="GET",code="200",le="0.3"}'
+        values: '0+5000x647'
+      - series: 'http_request_duration_seconds_count{route="/api/fast",method="GET",code="200"}'
+        values: '0+5000x647'
+    promql_expr_test:
+      - expr: round(slo:error_budget_burn_rate:ratio_rate6h{slo="availability"}, 0.1)
+        eval_time: 54h
+        exp_samples:
+          - labels: '{slo="availability"}'
+            value: 1.6
+    alert_rule_test:
+      - eval_time: 54h
+        alertname: SLOErrorBudgetBurnSlow
+        exp_alerts: []
