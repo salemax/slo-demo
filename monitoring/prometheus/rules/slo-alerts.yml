@@ -54,19 +54,23 @@ groups:
 
       # A dead service records no requests, so the ratios above are empty
       # and an outage would burn no budget and page no one.
-      # PLACEHOLDER (owner decision): no `for:`, so one failed scrape pages,
-      # and severity page. Neither is in D6.
+      # `for: 1m` (owner decision on #42): with the 15s scrape interval a
+      # single missed scrape stays pending and does not page; `up` must stay
+      # 0 for a full minute. Severity `page` is set but nothing routes it yet (no
+      # Alertmanager).
       - alert: SLOTargetDown
         expr: up{job="slo-demo-service"} == 0
+        for: 1m
         labels:
           severity: page
         annotations:
           summary: 'slo-demo-service scrape failing: SLO burn-rate alerts are blind'
 
       # No `up` series at all (scrape job missing or renamed): `== 0` above
-      # has nothing to compare, so it stays silent too.
+      # has nothing to compare, so it stays silent too. Same `for: 1m`.
       - alert: SLOTargetAbsent
         expr: absent(up{job="slo-demo-service"})
+        for: 1m
         labels:
           severity: page
         annotations:

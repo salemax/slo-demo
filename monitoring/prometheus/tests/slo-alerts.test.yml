@@ -191,50 +191,9 @@ tests:
       - {eval_time: 30m, alertname: SLOTargetDown, exp_alerts: []}
       - {eval_time: 30m, alertname: SLOTargetAbsent, exp_alerts: []}
 
-  # Outage: scrapes fail from 11m on, so `up` drops to 0. The service
-  # records nothing, the burn-rate alerts see no data and stay silent;
-  # SLOTargetDown is what pages.
-  - name: outage pages via up == 0
-    interval: 1m
-    input_series:
-      - series: 'up{job="slo-demo-service",instance="service:8080"}'
-        values: '1x10 0x20'
-    alert_rule_test:
-      - eval_time: 5m
-        alertname: SLOTargetDown
-        exp_alerts: []
-      - eval_time: 15m
-        alertname: SLOTargetDown
-        exp_alerts:
-          - exp_labels:
-              job: slo-demo-service
-              instance: service:8080
-              severity: page
-            exp_annotations:
-              summary: 'slo-demo-service scrape failing: SLO burn-rate alerts are blind'
-      - eval_time: 15m
-        alertname: SLOErrorBudgetBurnFast
-        exp_alerts: []
-
-  # No `up` series for the job at all (job missing from prometheus.yml or
-  # renamed): `up == 0` has nothing to compare, absent() catches it.
-  - name: missing scrape job pages via absent()
-    interval: 1m
-    input_series:
-      - series: 'up{job="something-else",instance="other:9090"}'
-        values: '1x10'
-    alert_rule_test:
-      - eval_time: 5m
-        alertname: SLOTargetAbsent
-        exp_alerts:
-          - exp_labels:
-              job: slo-demo-service
-              severity: page
-            exp_annotations:
-              summary: 'no up series for job slo-demo-service: SLO burn-rate alerts are blind'
-      - eval_time: 5m
-        alertname: SLOTargetDown
-        exp_alerts: []
+  # The outage alerts (`up == 0`, absent(), both `for: 1m`) are tested in
+  # slo-outage.test.yml, which evaluates every 15s like prometheus.yml so
+  # the pending phase is visible.
 
   # --- Medium page (6x over 6h and 30m), review of #42 ---
   # 1000 requests/min unless stated. Availability budget 0.005, so 6x is
