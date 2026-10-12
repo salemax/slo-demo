@@ -6,7 +6,7 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 
 ---
 
-## Where we left off (updated 2026-10-13)
+## Where we left off (updated 2026-10-12)
 
 **Done:** Phase 0 complete: `CLAUDE.md` and this plan, `.gitignore`, gitleaks secret scanning (local hook plus CI), `.tool-versions` (golang 1.27.1, gitleaks 8.30.1, promtool 3.15.0), Apache-2.0 license, README skeleton, branch protection on `main` (ruleset `initial`: PR required, squash only, `gitleaks` check required, no force-push or deletion, no bypass), and the Chatham test run (PR #10). D1-D6 are recorded as **placeholders** (owner delegated them, see Decisions): they unblock work but are not a considered choice.
 
@@ -23,7 +23,7 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 - `loadgen/Dockerfile` (#30): same pattern as the service image (distroless `static` nonroot, cross-compiled, digests re-verified). No `ENV` defaults on purpose: the built-in target `http://localhost:8080` is the container itself, so every container run must pass `LOADGEN_TARGET`. Reviewed by running it: 600 requests in 30s, `errors=0`, `SIGTERM` exits 0.
 - Loadgen is **not yet part of the compose stack**, so the first Phase 2 item is half done.
 
-**Phase 2 alerting rules are in (#42, merged 2026-10-13).** Recording rules (#40) and alerts (#42) are done; the dashboard and the experiments are next. Owner decision on #42: `for: 1m` on the two outage alerts, so a single missed 15 s scrape does not page. An idle service (NaN ratios) fires nothing, and `up` is the only signal that tells idle from healthy.
+**Phase 2 alerting rules are in (#42, merged 2026-10-12).** Recording rules (#40) and alerts (#42) are done; the dashboard and the experiments are next. Owner decision on #42: `for: 1m` on the two outage alerts, so a single missed 15 s scrape does not page. An idle service (NaN ratios) fires nothing, and `up` is the only signal that tells idle from healthy.
 
 **Findings from the reviews that the Phase 2 rules must account for:**
 - A full outage produces *no data*, not a 100% bad ratio: the service records nothing when nothing reaches it. Rules need `up{job="slo-demo-service"}` or `absent()` next to the ratio, and `http_requests_total` only exists after the first request.
@@ -284,4 +284,4 @@ Append-only. Format: `YYYY-MM-DD — decision — reason`.
 - 2026-10-11 — D2-D6 placeholder values kept as decided; D1 other 4xx (400, 405) are bad events; the loadgen timeout will be raised above 5s rather than adding a bucket above 5s — owner decision. Unblocks the Phase 2 recording rules. Raising the timeout keeps D5 unchanged and stops abandoned requests landing in `le="5"` or `+Inf` at random.
 - 2026-10-11 — Loadgen default timeout raised from 5s to 10s (twice the top D5 bucket) — owner approved the value. Abandoned requests now always land in `+Inf`; `mem_limit` is unaffected because memory is bounded by the in-flight cap, not the timeout. The value stays a placeholder like the other loadgen defaults.
 - 2026-10-12 — Reviewer agent removed; Chatham accesses the repo through its GitHub App, so agent PRs are authored by `app/agent-chatham-connect` instead of `salemax` — owner decision, reported in chat. Consequence: the author identity is now distinguishable from the owner's, which improves traceability. Review now relies on the owner plus the Claude Code session running each PR, with less independent review than D12 intended (same trade-off D12 already accepted). Open: App permissions are unchecked here; the "no `Workflows` permission" rule (2026-10-05) was about the PAT and needs re-checking for the App.
-- 2026-10-13 — Outage alerts `SLOTargetDown` and `SLOTargetAbsent` get `for: 1m` (about four 15 s scrapes) — owner agreed. A single missed scrape would otherwise page, and a freshly reloaded job can briefly have no `up` series. The `for:` on `SLOTargetAbsent` was suggested by Claude Code, not asked for by the owner. Burn-rate alerts keep no `for:` (D6 defines none; the short window already stops flapping). `severity` labels `page` and `ticket` follow the D6 wording and are unrouted until an Alertmanager exists.
+- 2026-10-12 — Outage alerts `SLOTargetDown` and `SLOTargetAbsent` get `for: 1m` (about four 15 s scrapes) — owner agreed. A single missed scrape would otherwise page, and a freshly reloaded job can briefly have no `up` series. The `for:` on `SLOTargetAbsent` was suggested by Claude Code, not asked for by the owner. Burn-rate alerts keep no `for:` (D6 defines none; the short window already stops flapping). `severity` labels `page` and `ticket` follow the D6 wording and are unrouted until an Alertmanager exists.
