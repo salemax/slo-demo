@@ -113,6 +113,29 @@ after start):
 curl -s 'localhost:9090/api/v1/query' --data-urlencode 'query=slo:error_budget_burn_rate:ratio_rate5m' | jq -c '.data.result[] | {slo: .metric.slo, value: .value[1]}'
 ```
 
+## SLO alerting rules
+
+`prometheus/rules/slo-alerts.yml` alerts on the burn-rate series above, per
+`slo`. Each alert needs both of its D6 windows above the threshold: the long
+window shows the burn matters, the short one that it is still going on.
+
+| Alert | Fires when burn rate is above | severity |
+|---|---|---|
+| `SLOErrorBudgetBurnFast` | 14.4x over 1h and 5m | page |
+| `SLOErrorBudgetBurnMedium` | 6x over 6h and 30m | page |
+| `SLOErrorBudgetBurnSlow` | 1x over 3d and 6h | ticket |
+| `SLOTargetDown` | `up{job="slo-demo-service"} == 0` | page |
+| `SLOTargetAbsent` | no `up` series for the job | page |
+
+An idle service (NaN ratios) fires nothing. A down service has no ratios at
+all, so only `SLOTargetDown` / `SLOTargetAbsent` report it. No Alertmanager
+runs in this stack: alerts show in Prometheus only.
+
+```sh
+curl -s localhost:9090/api/v1/alerts | jq -c '.data.alerts[] | {alert: .labels.alertname, slo: .labels.slo, state}'
+# expect nothing while the stack is healthy
+```
+
 ## Stop
 
 ```sh
