@@ -160,6 +160,12 @@ curl -s -u admin:<password> localhost:3000/api/search | jq -c '.[] | {uid, title
 # expect: {"uid":"slo-demo","title":"slo-demo SLOs"}
 ```
 
+## Experiments
+
+[`EXPERIMENTS.md`](EXPERIMENTS.md) walks through four fault-injection runs
+(5% errors, 20% errors, added latency, a 1-minute outage) with the expected
+burn rates worked out by hand and the values measured in this stack.
+
 ## Stop
 
 ```sh
