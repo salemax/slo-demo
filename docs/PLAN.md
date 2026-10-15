@@ -151,12 +151,22 @@ A restarted agent came back online (owner, 2026-10-05). Not verified: that the U
 - [x] Scaffold a Backstage app (version verified at the time of work). `@backstage/create-app` 0.9.2, Backstage 1.55.0, Node 24.21.0, Yarn 4.13.0 (via Corepack, pinned by the app's `packageManager`). Needs a workaround for upstream bug backstage/backstage#35964, see decision log.
 - [x] Register the demo service in the catalog, with an annotation pointing to its SLO data. Done in #48: `backstage/catalog/slo-demo-service.yaml` carries `slo-demo/slos: availability,latency` (presence makes the SLO card render, the values are the `slo` label on the `slo:*` series) and `slo-demo/grafana-dashboard-uid: slo-demo`. Not verified by running Backstage: the agent VM has no disk space for `yarn install` (see the PR).
 - [x] Plugin architecture: frontend-only via proxy, or frontend + backend plugin. **(owner)** decided frontend-only via proxy (D8, 2026-10-15); the proxy endpoint `/prometheus/api` is configured in `backstage/app-config.yaml` (#48).
-- [ ] Entity page card showing:
+- [x] Entity page card showing:
   - SLO target,
   - current compliance,
   - error budget remaining,
   - current burn rate.
-- [ ] Tests for the plugin (unit and component)
+
+  Done: `backstage/plugins/slo` renders one row per `slo` label, reading
+  `slo:objective:ratio`, `slo:sli_error:ratio_rate28d`,
+  `slo:error_budget_remaining:ratio_rate28d` and
+  `slo:error_budget_burn_rate:ratio_rate5m` through the proxy. A missing
+  series or `NaN` renders as "No data"; an unreachable Prometheus replaces
+  the table with the error.
+- [x] Tests for the plugin (unit and component). 25 tests in 5 suites:
+  annotation parsing, formatting, the Prometheus client (URL, grouping,
+  NaN, HTTP and Prometheus-level errors) and the card itself rendered with
+  a stubbed `fetchApi`.
 
 **Done when:** the service page in Backstage shows live SLO data from Prometheus, and the values match Grafana.
 
@@ -286,3 +296,4 @@ Append-only. Format: `YYYY-MM-DD — decision — reason`.
 - 2026-10-12 — Reviewer agent removed; Chatham accesses the repo through its GitHub App, so agent PRs are authored by `app/agent-chatham-connect` instead of `salemax` — owner decision, reported in chat. Consequence: the author identity is now distinguishable from the owner's, which improves traceability. Review now relies on the owner plus the Claude Code session running each PR, with less independent review than D12 intended (same trade-off D12 already accepted). Open: App permissions are unchecked here; the "no `Workflows` permission" rule (2026-10-05) was about the PAT and needs re-checking for the App.
 - 2026-10-12 — Outage alerts `SLOTargetDown` and `SLOTargetAbsent` get `for: 1m` (about four 15 s scrapes) — owner agreed. A single missed scrape would otherwise page, and a freshly reloaded job can briefly have no `up` series. The `for:` on `SLOTargetAbsent` was suggested by Claude Code, not asked for by the owner. Burn-rate alerts keep no `for:` (D6 defines none; the short window already stops flapping). `severity` labels `page` and `ticket` follow the D6 wording and are unrouted until an Alertmanager exists.
 - 2026-10-15 — D8: the Backstage SLO plugin is frontend-only and reads Prometheus through the Backstage proxy; no backend plugin — owner decision. The scaffold already registers `@backstage/plugin-proxy-backend`, so this needs configuration only, and the Prometheus address stays in `app-config.yaml` in one place. Accepted trade-offs: the proxy endpoint is reachable by any signed-in Backstage user (`credentials: require`, the default, and `allowedMethods: ['GET']`), the PromQL lives in frontend code, and a deployed Backstage needs its own `target` (Phase 4).
+- 2026-10-15 — SLO entity card implemented frontend-only per D8, with these agent choices, all placeholders: the card reads the 5m burn rate (the fastest D6 window) as "current", shows three decimals for ratios and one for the budget, renders as a `content` card rather than an `info` card because the five columns wrap in the narrow right-hand column (measured 330 px vs 661 px), and does not poll. `slo.grafanaBaseUrl` in `app-config.yaml` is a new frontend config key, local-dev value only; without it the card renders without the dashboard link.

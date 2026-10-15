@@ -163,6 +163,13 @@ proxy:
       # signed-in Backstage user can reach Prometheus through the proxy.
       # Prometheus itself has no auth in this stack.
 
+# SLO plugin (plugins/slo). Only the Grafana link needs config; where
+# Prometheus lives is the proxy endpoint above.
+slo:
+  # Placeholder, local dev only: monitoring/docker-compose.yml publishes
+  # Grafana on 127.0.0.1:3000. Remove the key and the card drops its link.
+  grafanaBaseUrl: http://localhost:3000
+
 # Reference documentation http://backstage.io/docs/features/techdocs/configuration
 # Note: After experimenting with basic setup, use CI/CD to generate docs
 # and an external cloud storage when deploying TechDocs for production use-case.

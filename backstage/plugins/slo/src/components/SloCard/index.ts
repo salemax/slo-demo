@@ -1,0 +1,1 @@
+export { SloCard } from './SloCard';
