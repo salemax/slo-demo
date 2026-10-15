@@ -149,8 +149,8 @@ A restarted agent came back online (owner, 2026-10-05). Not verified: that the U
 ## Phase 3: Backstage SLO plugin
 
 - [x] Scaffold a Backstage app (version verified at the time of work). `@backstage/create-app` 0.9.2, Backstage 1.55.0, Node 24.21.0, Yarn 4.13.0 (via Corepack, pinned by the app's `packageManager`). Needs a workaround for upstream bug backstage/backstage#35964, see decision log.
-- [x] Register the demo service in the catalog, with an annotation pointing to its SLO data. Done: `backstage/catalog/slo-demo-service.yaml` carries `slo-demo/slos: availability,latency` (presence makes the SLO card render, the values are the `slo` label on the `slo:*` series) and `slo-demo/grafana-dashboard-uid: slo-demo`. Not verified by running Backstage: the agent VM has no disk space for `yarn install` (see the PR).
-- [x] Plugin architecture: frontend-only via proxy, or frontend + backend plugin. **(owner)** decided frontend-only via proxy (D8, 2026-10-15); the proxy endpoint `/prometheus/api` is configured in `backstage/app-config.yaml`.
+- [x] Register the demo service in the catalog, with an annotation pointing to its SLO data. Done in #48: `backstage/catalog/slo-demo-service.yaml` carries `slo-demo/slos: availability,latency` (presence makes the SLO card render, the values are the `slo` label on the `slo:*` series) and `slo-demo/grafana-dashboard-uid: slo-demo`. Not verified by running Backstage: the agent VM has no disk space for `yarn install` (see the PR).
+- [x] Plugin architecture: frontend-only via proxy, or frontend + backend plugin. **(owner)** decided frontend-only via proxy (D8, 2026-10-15); the proxy endpoint `/prometheus/api` is configured in `backstage/app-config.yaml` (#48).
 - [ ] Entity page card showing:
   - SLO target,
   - current compliance,
