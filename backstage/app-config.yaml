@@ -144,12 +144,24 @@ integrations:
     #   token: ${GHE_TOKEN}
 
 proxy:
-  ### Example for how to add a proxy endpoint for the frontend.
-  ### A typical reason to do this is to handle HTTPS and CORS for internal services.
-  # endpoints:
-  #   '/test':
-  #     target: 'https://example.com'
-  #     changeOrigin: true
+  endpoints:
+    # D8: the SLO plugin is frontend-only and reads Prometheus through this
+    # proxy, so the Prometheus address lives here and nowhere else. The
+    # browser never talks to Prometheus directly: the frontend calls
+    # <backend.baseUrl>/api/proxy/prometheus/api/query and the proxy's
+    # default pathRewrite turns that into <target>query.
+    '/prometheus/api':
+      # Local dev target: monitoring/docker-compose.yml publishes Prometheus
+      # on 127.0.0.1:9090 and Backstage runs on the host, not in the stack.
+      # A deployed Backstage needs its own value (Phase 4).
+      target: 'http://localhost:9090/api/v1/'
+      changeOrigin: true
+      # Read-only: the SLO card only queries. Prometheus' write and admin
+      # endpoints are POST/PUT, so they are unreachable through here.
+      allowedMethods: ['GET']
+      # `credentials` is left at its default, `require`, so only a
+      # signed-in Backstage user can reach Prometheus through the proxy.
+      # Prometheus itself has no auth in this stack.
 
 # Reference documentation http://backstage.io/docs/features/techdocs/configuration
 # Note: After experimenting with basic setup, use CI/CD to generate docs

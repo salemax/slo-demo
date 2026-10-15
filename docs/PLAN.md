@@ -149,8 +149,8 @@ A restarted agent came back online (owner, 2026-10-05). Not verified: that the U
 ## Phase 3: Backstage SLO plugin
 
 - [x] Scaffold a Backstage app (version verified at the time of work). `@backstage/create-app` 0.9.2, Backstage 1.55.0, Node 24.21.0, Yarn 4.13.0 (via Corepack, pinned by the app's `packageManager`). Needs a workaround for upstream bug backstage/backstage#35964, see decision log.
-- [ ] Register the demo service in the catalog, with an annotation pointing to its SLO data. Partly done: `backstage/catalog/slo-demo-service.yaml` is registered; the SLO annotation is not added yet (its design belongs with D8).
-- [ ] Plugin architecture: frontend-only via proxy, or frontend + backend plugin. **(owner)** decides after the agent presents trade-offs.
+- [x] Register the demo service in the catalog, with an annotation pointing to its SLO data. Done in #48: `backstage/catalog/slo-demo-service.yaml` carries `slo-demo/slos: availability,latency` (presence makes the SLO card render, the values are the `slo` label on the `slo:*` series) and `slo-demo/grafana-dashboard-uid: slo-demo`. Not verified by running Backstage: the agent VM has no disk space for `yarn install` (see the PR).
+- [x] Plugin architecture: frontend-only via proxy, or frontend + backend plugin. **(owner)** decided frontend-only via proxy (D8, 2026-10-15); the proxy endpoint `/prometheus/api` is configured in `backstage/app-config.yaml` (#48).
 - [ ] Entity page card showing:
   - SLO target,
   - current compliance,
@@ -243,7 +243,7 @@ Agents: if a task depends on a `TBD` row, stop and ask.
 | D5 | Histogram bucket boundaries (must include D2 threshold) | Seconds: 0.005, 0.01, 0.025, 0.05, 0.1, 0.2, 0.3, 0.5, 1, 2.5, 5 | decided 2026-10-11 (placeholder from 2026-10-05 kept) |
 | D6 | Burn-rate alert windows and thresholds | Page: 14.4x over 1h and 5m; page: 6x over 6h and 30m; ticket: 1x over 3d and 6h (long and short window must both exceed) | decided 2026-10-11 (placeholder from 2026-10-05 kept) |
 | D7 | License | Apache-2.0 | decided 2026-10-01 |
-| D8 | Backstage plugin architecture | TBD | open |
+| D8 | Backstage plugin architecture | Frontend-only plugin, reading Prometheus through the Backstage proxy (`proxy.endpoints` in `backstage/app-config.yaml`). No backend plugin. | decided 2026-10-15 |
 | D9 | Load generator tool | Small Go program in loadgen/, decided 2026-10-07 | decided 2026-10-07 |
 | D10 | Credentials for Chatham agents. Options: API key with a spend limit (safest), or Pro login (grey zone under Anthropic's terms). Cloud agents must use an API key. | Pro token from `claude setup-token` | decided 2026-10-03 |
 | D11 | Isolation for local agents | Docker container on the owner's Mac (`docs/chatham/`); Docker for compose checks deferred to Phase 2 | decided 2026-10-03 |
@@ -285,3 +285,4 @@ Append-only. Format: `YYYY-MM-DD — decision — reason`.
 - 2026-10-11 — Loadgen default timeout raised from 5s to 10s (twice the top D5 bucket) — owner approved the value. Abandoned requests now always land in `+Inf`; `mem_limit` is unaffected because memory is bounded by the in-flight cap, not the timeout. The value stays a placeholder like the other loadgen defaults.
 - 2026-10-12 — Reviewer agent removed; Chatham accesses the repo through its GitHub App, so agent PRs are authored by `app/agent-chatham-connect` instead of `salemax` — owner decision, reported in chat. Consequence: the author identity is now distinguishable from the owner's, which improves traceability. Review now relies on the owner plus the Claude Code session running each PR, with less independent review than D12 intended (same trade-off D12 already accepted). Open: App permissions are unchecked here; the "no `Workflows` permission" rule (2026-10-05) was about the PAT and needs re-checking for the App.
 - 2026-10-12 — Outage alerts `SLOTargetDown` and `SLOTargetAbsent` get `for: 1m` (about four 15 s scrapes) — owner agreed. A single missed scrape would otherwise page, and a freshly reloaded job can briefly have no `up` series. The `for:` on `SLOTargetAbsent` was suggested by Claude Code, not asked for by the owner. Burn-rate alerts keep no `for:` (D6 defines none; the short window already stops flapping). `severity` labels `page` and `ticket` follow the D6 wording and are unrouted until an Alertmanager exists.
+- 2026-10-15 — D8: the Backstage SLO plugin is frontend-only and reads Prometheus through the Backstage proxy; no backend plugin — owner decision. The scaffold already registers `@backstage/plugin-proxy-backend`, so this needs configuration only, and the Prometheus address stays in `app-config.yaml` in one place. Accepted trade-offs: the proxy endpoint is reachable by any signed-in Backstage user (`credentials: require`, the default, and `allowedMethods: ['GET']`), the PromQL lives in frontend code, and a deployed Backstage needs its own `target` (Phase 4).

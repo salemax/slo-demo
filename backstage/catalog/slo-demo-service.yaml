@@ -2,9 +2,19 @@ apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: slo-demo-service
-  description: Go demo service used for SLI/SLO experiments (not built yet, see docs/PLAN.md Phase 1).
+  description: Go demo service used for SLI/SLO experiments; instrumented for Prometheus and covered by the SLO recording rules in monitoring/prometheus/rules/.
   annotations:
     github.com/project-slug: salemax/slo-demo
+    # The SLO card renders only for entities that carry this annotation, and
+    # its value picks the rows: one per value of the `slo` label on the
+    # slo:* recording rules (monitoring/prometheus/rules/slo-recording.yml).
+    # Those series are not labelled per service today, so this entity is the
+    # only one the values are true for (see the PR for D8 open question 1).
+    slo-demo/slos: availability,latency
+    # Deep link target for the card, so "open the dashboard" needs no
+    # second copy of the Grafana URL (uid set in
+    # monitoring/grafana/provisioning/dashboards/json/slo-demo.json).
+    slo-demo/grafana-dashboard-uid: slo-demo
 spec:
   type: service
   lifecycle: experimental
