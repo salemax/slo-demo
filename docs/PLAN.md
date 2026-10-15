@@ -157,13 +157,13 @@ A restarted agent came back online (owner, 2026-10-05). Not verified: that the U
   - error budget remaining,
   - current burn rate.
 
-  Done: `backstage/plugins/slo` renders one row per `slo` label, reading
+  Done in #49: `backstage/plugins/slo` renders one row per `slo` label, reading
   `slo:objective:ratio`, `slo:sli_error:ratio_rate28d`,
   `slo:error_budget_remaining:ratio_rate28d` and
   `slo:error_budget_burn_rate:ratio_rate5m` through the proxy. A missing
   series or `NaN` renders as "No data"; an unreachable Prometheus replaces
   the table with the error.
-- [x] Tests for the plugin (unit and component). 25 tests in 5 suites:
+- [x] Tests for the plugin (unit and component), #49. 25 tests in 5 suites:
   annotation parsing, formatting, the Prometheus client (URL, grouping,
   NaN, HTTP and Prometheus-level errors) and the card itself rendered with
   a stubbed `fetchApi`.
