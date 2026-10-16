@@ -177,10 +177,10 @@ A restarted agent came back online (owner, 2026-10-05). Not verified: that the U
 - [ ] Helm chart for the service (plus monitoring components as needed)
 - [ ] Local cluster with kind (arm64)
 - [ ] GitHub Actions CI (Go checks workflow for `service/` and `loadgen/` is done, PRs #19 and #28; `go-gate` not a required check yet):
-  - lint, test, build,
-  - multi-arch image push to GHCR,
-  - `helm lint` and chart tests,
-  - rule tests.
+  - [x] lint, test, build (Go: `go.yml`),
+  - [ ] multi-arch image push to GHCR,
+  - [ ] `helm lint` and chart tests,
+  - [x] rule tests (#50: `promtool.yml` runs `check config`, `check rules` and `test rules` on every PR; the `promtool` check is not a required check yet, same as `go-gate`).
 - [ ] ArgoCD (later): GitOps deployment to kind
 
 **Done when:** a fresh clone can bring up the full stack on kind by following the README, and CI is green on `main`.
@@ -297,3 +297,4 @@ Append-only. Format: `YYYY-MM-DD — decision — reason`.
 - 2026-10-12 — Outage alerts `SLOTargetDown` and `SLOTargetAbsent` get `for: 1m` (about four 15 s scrapes) — owner agreed. A single missed scrape would otherwise page, and a freshly reloaded job can briefly have no `up` series. The `for:` on `SLOTargetAbsent` was suggested by Claude Code, not asked for by the owner. Burn-rate alerts keep no `for:` (D6 defines none; the short window already stops flapping). `severity` labels `page` and `ticket` follow the D6 wording and are unrouted until an Alertmanager exists.
 - 2026-10-15 — D8: the Backstage SLO plugin is frontend-only and reads Prometheus through the Backstage proxy; no backend plugin — owner decision. The scaffold already registers `@backstage/plugin-proxy-backend`, so this needs configuration only, and the Prometheus address stays in `app-config.yaml` in one place. Accepted trade-offs: the proxy endpoint is reachable by any signed-in Backstage user (`credentials: require`, the default, and `allowedMethods: ['GET']`), the PromQL lives in frontend code, and a deployed Backstage needs its own `target` (Phase 4).
 - 2026-10-15 — SLO entity card implemented frontend-only per D8, with these agent choices, all placeholders: the card reads the 5m burn rate (the fastest D6 window) as "current", shows three decimals for ratios and one for the budget, renders as a `content` card rather than an `info` card because the five columns wrap in the narrow right-hand column (measured 330 px vs 661 px), and does not poll. `slo.grafanaBaseUrl` in `app-config.yaml` is a new frontend config key, local-dev value only; without it the card renders without the dashboard link.
+- 2026-10-16 — Rule tests run in CI (`promtool.yml`), with these agent choices: promtool comes from the official Prometheus `linux-amd64` release tarball, pinned to the `.tool-versions` version (3.15.0) and verified against the release `sha256sums.txt`, following the gitleaks pattern; a first step fails the job if the workflow and `.tool-versions` versions drift. No `paths:` filter, for the same reason as `go.yml` (a skipped path-filtered workflow reports no status, so it could never be required). One job, so the check name `promtool / rules` is stable and needs no gate job. `promtool check config` validates `prometheus.yml` syntax only: its `rule_files` glob is the container path `/etc/prometheus/rules/*.yml`, which matches nothing on a runner, so the rules are checked by their own step instead.
