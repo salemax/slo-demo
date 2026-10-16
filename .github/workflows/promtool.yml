@@ -1,0 +1,56 @@
+name: promtool
+
+# No path filter: a skipped path-filtered workflow reports no status, so it
+# could never be a required check. It runs on every PR instead, same as go.yml.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  # promtool ships inside the Prometheus release archive. Keep in sync with
+  # .tool-versions; the first step fails if the two drift apart.
+  PROMETHEUS_VERSION: 3.15.0
+  # From sha256sums.txt in the official v3.15.0 release.
+  PROMETHEUS_SHA256: 2a542df32eac02ee17b9d844fb2aa1de00dafa5476579ba8a3ba862e9d572ea0
+
+jobs:
+  # Single job, so its check name is stable and can be required directly on
+  # the branch ruleset. No gate job is needed (unlike go.yml, which has a
+  # matrix whose job names change with the module list).
+  rules:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The job never pushes, so do not leave the token in the checkout.
+          persist-credentials: false
+
+      - name: promtool version matches .tool-versions
+        run: |
+          pinned="$(awk '$1 == "promtool" { print $2 }' .tool-versions)"
+          echo ".tool-versions: promtool $pinned"
+          echo "workflow:       promtool $PROMETHEUS_VERSION"
+          test "$pinned" = "$PROMETHEUS_VERSION"
+
+      - name: Install promtool
+        run: |
+          curl -sSfL -o prometheus.tar.gz \
+            "https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"
+          echo "${PROMETHEUS_SHA256}  prometheus.tar.gz" | sha256sum -c -
+          tar -xzf prometheus.tar.gz --strip-components=1 \
+            "prometheus-${PROMETHEUS_VERSION}.linux-amd64/promtool"
+          ./promtool --version
+
+      # Syntax only: the rule_files glob in prometheus.yml is a container path
+      # (/etc/prometheus/rules/*.yml), so it matches nothing on the runner and
+      # promtool does not validate the rules through it. They are checked below.
+      - name: promtool check config
+        run: ./promtool check config monitoring/prometheus/prometheus.yml
+
+      - name: promtool check rules
+        run: ./promtool check rules monitoring/prometheus/rules/*.yml
+
+      - name: promtool test rules
+        run: ./promtool test rules monitoring/prometheus/tests/*.test.yml
