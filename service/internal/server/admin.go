@@ -96,8 +96,15 @@ func decodeErrorResponse(err error) (int, string) {
 	if strings.HasPrefix(err.Error(), "json: unknown field ") {
 		return http.StatusBadRequest, err.Error()
 	}
+	// Decode returns a bare io.EOF when there is no value at all, and
+	// io.ErrUnexpectedEOF when a value starts but is cut off. Neither is a
+	// *json.SyntaxError, so without these cases both fell through to the
+	// generic message below, which did not say what was wrong.
+	if errors.Is(err, io.EOF) {
+		return http.StatusBadRequest, "request body is empty"
+	}
 	var syntaxErr *json.SyntaxError
-	if errors.As(err, &syntaxErr) {
+	if errors.As(err, &syntaxErr) || errors.Is(err, io.ErrUnexpectedEOF) {
 		return http.StatusBadRequest, "malformed JSON"
 	}
 	var typeErr *json.UnmarshalTypeError
