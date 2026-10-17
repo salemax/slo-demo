@@ -347,6 +347,31 @@ func TestFaultsRejectTrailingData(t *testing.T) {
 	}
 }
 
+// TestFaultsDecodeMessages pins the message for bodies that never produce a
+// complete JSON value. Both used to answer the generic "invalid request body".
+func TestFaultsDecodeMessages(t *testing.T) {
+	cases := []struct{ name, body, want string }{
+		{"empty", ``, "request body is empty"},
+		{"whitespace only", " \n\t", "request body is empty"},
+		{"truncated object", `{"rules":[`, "malformed JSON"},
+		{"truncated string", `{"rules`, "malformed JSON"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, admin := newHandlers(fakeSleeper(new([]time.Duration)), fixedChance(0))
+
+			rec := putFaults(t, admin, tc.body)
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+			}
+			if !strings.Contains(rec.Body.String(), tc.want) {
+				t.Fatalf("message = %s, want %q", rec.Body.String(), tc.want)
+			}
+		})
+	}
+}
+
 // TestFaultsTrailingWhitespaceOverLimit covers the one case where the
 // trailing-data check must not answer 400: the body parsed fine, but reading
 // past it ran into the size limit, so the honest answer is 413.
