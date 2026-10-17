@@ -24,7 +24,7 @@ groups:
     rules:
       - alert: SLOErrorBudgetBurnFast
         expr: |
-          slo:error_budget_burn_rate:ratio_rate1h > 14.4
+          slo:error_budget_burn_rate:ratio_rate1h > 14.4 )
           and on(slo)
           slo:error_budget_burn_rate:ratio_rate5m > 14.4
         labels:
