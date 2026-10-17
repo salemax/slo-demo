@@ -5,3 +5,5 @@ metadata:
 spec:
   profile:
     displayName: Sasa Maksimovic
+  # Required by the User schema (an empty list is valid).
+  memberOf: []
