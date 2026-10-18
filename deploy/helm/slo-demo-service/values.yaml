@@ -1,0 +1,44 @@
+# Placeholder: a single replica is enough for a local kind demo. More than one
+# replica works (the service is stateless), but each pod keeps its own fault
+# rules, so an experiment would have to set them on every pod.
+replicaCount: 1
+
+image:
+  # No registry is baked in. With kind, build locally and `kind load docker-image`
+  # it; once the image is pushed to a registry, override repository and tag.
+  repository: slo-demo-service
+  tag: dev
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  # Only the public port is exposed. The admin API (8081) is deliberately not
+  # part of the Service.
+  port: 8080
+
+# Placeholders, not tuned: the service is tiny and idle-heavy. Revisit when
+# loadgen runs in the cluster.
+resources:
+  requests:
+    cpu: 50m
+    memory: 32Mi
+  limits:
+    memory: 64Mi
+
+# Placeholders: /healthz answers immediately and is never fault-injected.
+probes:
+  liveness:
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 3
+  readiness:
+    initialDelaySeconds: 0
+    periodSeconds: 5
+    timeoutSeconds: 1
+    failureThreshold: 3
+
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}

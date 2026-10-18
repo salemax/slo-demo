@@ -1,0 +1,9 @@
+apiVersion: v2
+name: slo-demo-service
+description: The slo-demo Go service (public API on 8080, loopback-only admin API on 8081).
+type: application
+# Chart version; bump on any change to this chart.
+version: 0.1.0
+# Informational only: there is no published image yet (GHCR push is a
+# separate Phase 4 item), so the image tag comes from values, not from here.
+appVersion: "0.1.0"
