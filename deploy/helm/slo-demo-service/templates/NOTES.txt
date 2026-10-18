@@ -1,0 +1,7 @@
+Public API (port {{ .Values.service.port }}):
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "slo-demo-service.fullname" . }} 8080:{{ .Values.service.port }}
+  curl -s localhost:8080/api/fast
+
+Admin API (fault injection, loopback-only inside the pod, not in the Service):
+  kubectl -n {{ .Release.Namespace }} port-forward deploy/{{ include "slo-demo-service.fullname" . }} 8081:8081
+  curl -s localhost:8081/admin/faults
