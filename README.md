@@ -2,7 +2,7 @@
 
 A hands-on project for practising SLI/SLO/SLA engineering end to end: a small service that can be made to fail on demand, the monitoring that measures it against a service level objective, and the tooling that makes that visible to a team.
 
-> **Status:** Phases 0-2 are done. The service, the load generator and the full monitoring stack — recording rules, multi-window burn-rate alerts, rule tests, a provisioned Grafana dashboard and documented fault-injection experiments — come up with one command, see [Quick start](#quick-start). Phase 3 is a Backstage scaffold with no SLO plugin yet, and Phase 4 has not started. Progress and open decisions are tracked in [`docs/PLAN.md`](docs/PLAN.md).
+> **Status:** Phases 0-2 are done. The service, the load generator and the full monitoring stack — recording rules, multi-window burn-rate alerts, rule tests, a provisioned Grafana dashboard and documented fault-injection experiments — come up with one command, see [Quick start](#quick-start). Phase 3 is done too: a Backstage app whose entity page shows an SLO card read from the same Prometheus rules. Phase 4 is in progress: a Helm chart for the service exists, and the kind cluster, image publishing and GitOps deployment do not yet. Progress and open decisions are tracked in [`docs/PLAN.md`](docs/PLAN.md).
 
 ## Goal
 
@@ -14,7 +14,7 @@ Learn and demonstrate how to define, measure and alert on service levels:
 - show SLO status to developers inside Backstage,
 - run the whole stack locally and deploy it with Helm and GitOps.
 
-Every SLI definition, SLO target, window and alert threshold is a deliberate, documented decision by the repo owner, recorded in the Decisions table in [`docs/PLAN.md`](docs/PLAN.md). D1-D6 — the decisions everything in `monitoring/` is built from — were decided on 2026-10-11. D8, the Backstage plugin architecture, is still open. The values themselves live in the rules and in [`monitoring/README.md`](monitoring/README.md) rather than here, so there is one copy of each.
+Every SLI definition, SLO target, window and alert threshold is a deliberate, documented decision by the repo owner, recorded in the Decisions table in [`docs/PLAN.md`](docs/PLAN.md). D1-D6 — the decisions everything in `monitoring/` is built from — were decided on 2026-10-11, and D8, the Backstage plugin architecture, on 2026-10-15. The values themselves live in the rules and in [`monitoring/README.md`](monitoring/README.md) rather than here, so there is one copy of each.
 
 ## Architecture overview
 
@@ -30,9 +30,9 @@ loadgen ──HTTP──▶ service ──/metrics──▶ Prometheus ──▶
 | `service/` | Go HTTP service exposing Prometheus metrics, with runtime-adjustable fault injection (error rate, latency) | built |
 | `loadgen/` | Steady open-loop traffic generator for SLO experiments | built |
 | `monitoring/` | docker-compose stack; Prometheus rules (SLIs, error budget, burn rate, alerts) with `promtool` tests; provisioned Grafana dashboard | built |
-| `backstage/` | Backstage app with a plugin showing SLO target, compliance, budget and burn rate | scaffold only; the plugin needs D8 |
-| `deploy/helm/` | Helm chart, deployed to a local kind cluster | not started |
-| `.github/workflows/` | CI: Go vet, race tests, build and `go mod tidy -diff` (`go.yml`); gitleaks secret scanning (`secret-scan.yml`) | built |
+| `backstage/` | Backstage app with a plugin showing SLO target, compliance, budget and burn rate | built |
+| `deploy/helm/` | Helm chart, deployed to a local kind cluster | chart built; no kind setup or published image yet |
+| `.github/workflows/` | CI: Go vet, race tests, build and `go mod tidy -diff` (`go.yml`); `promtool` rule checks and tests (`promtool.yml`); gitleaks secret scanning (`secret-scan.yml`) | built; no `helm lint` or image build yet |
 
 All container images must support `linux/arm64` and `linux/amd64`.
 
@@ -43,8 +43,8 @@ All container images must support `linux/arm64` and `linux/amd64`.
 | 0 | Repository hygiene: ignore rules, secret scanning, license, branch protection | done |
 | 1 | Go demo service with metrics and fault injection | done |
 | 2 | Monitoring stack: rules, rule tests, dashboard, experiments | done |
-| 3 | Backstage SLO plugin | scaffold only |
-| 4 | Helm, kind, CI and GitOps deployment | not started |
+| 3 | Backstage SLO plugin | done |
+| 4 | Helm, kind, CI and GitOps deployment | in progress |
 
 Details and current status of each task: [`docs/PLAN.md`](docs/PLAN.md).
 
@@ -96,8 +96,8 @@ Each component has its own README with the details; this table is the index. Too
 | Load generator | [`loadgen/README.md`](loadgen/README.md) — rate, route mix, timeout, open-loop behaviour |
 | Prometheus rules and dashboard | [`monitoring/README.md`](monitoring/README.md) — the `slo:*` series, the alerts, `promtool check rules` and `promtool test rules` |
 | Fault-injection experiments | [`monitoring/EXPERIMENTS.md`](monitoring/EXPERIMENTS.md) |
-| Backstage | [Backstage](#backstage-phase-3-scaffold-only) below (scaffold only, no SLO plugin yet) |
-| kind deployment | _coming with Phase 4_ |
+| Backstage and the SLO card | [Backstage](#backstage) below, and [`backstage/plugins/slo/README.md`](backstage/plugins/slo/README.md) |
+| Helm chart | [`deploy/helm/slo-demo-service/README.md`](deploy/helm/slo-demo-service/README.md) — install on a throwaway kind cluster with a locally built image |
 
 The rule tests need no Docker, only `promtool`:
 
@@ -106,7 +106,7 @@ promtool check rules monitoring/prometheus/rules/*.yml
 promtool test rules monitoring/prometheus/tests/*.test.yml
 ```
 
-### Backstage (Phase 3, scaffold only)
+### Backstage
 
 Prerequisites: Node.js as pinned in [`.tool-versions`](.tool-versions) (`nodejs 24.21.0`). Yarn comes through Corepack, which reads the version the app pins in `backstage/package.json` (`packageManager`).
 
@@ -118,7 +118,7 @@ yarn install                    # first run, and after dependency changes
 yarn start                      # frontend on :3000, backend on :7007
 ```
 
-Open <http://localhost:3000>. The catalog lists `slo-demo-service` (from `backstage/catalog/slo-demo-service.yaml`) and the generated `example-website`. Stop with `Ctrl+C` in the terminal that runs `yarn start`. If that terminal is gone, find and stop the processes:
+Open <http://localhost:3000>. The catalog lists `slo-demo-service` (from `backstage/catalog/slo-demo-service.yaml`) and the generated `example-website`. The `slo-demo-service` overview page has the SLO card; it reads Prometheus on `localhost:9090` through the Backstage proxy, so it shows "No data" unless the monitoring stack is running. Stop with `Ctrl+C` in the terminal that runs `yarn start`. If that terminal is gone, find and stop the processes:
 
 ```sh
 lsof -ti :3000 -ti :7007 | sort -u | xargs kill
@@ -128,7 +128,7 @@ Notes:
 
 - Sign in as **Guest**. This is a local demo setup with no real authentication.
 - The catalog database is in memory (`better-sqlite3`, `:memory:`), so it is rebuilt from the YAML files on every start.
-- Backstage and Grafana both want port 3000. Run one or the other, or stop the monitoring stack first.
+- Backstage and Grafana both want port 3000. To see the SLO card with data, run the stack without Grafana: `docker compose -f monitoring/docker-compose.yml up -d --build service loadgen prometheus`. The card's dashboard link then points at Backstage's own port, so open the dashboard with Backstage stopped.
 
 ## Secret scanning
 
