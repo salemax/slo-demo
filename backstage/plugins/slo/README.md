@@ -6,8 +6,14 @@ no backend plugin, Prometheus is read through the Backstage proxy.
 
 ## What it shows
 
-One `InfoCard` on the entity page, with a row per `slo` label the entity
-declares, and four columns:
+One SLO card on the entity page, with a row per `slo` label the entity
+declares, and four columns. It is registered as an entity card of
+`type: 'content'`, not `'info'`: an `'info'`-type card sits in the narrow
+right-hand column (measured 330 px), where the five columns (the row label
+plus the four below) wrap onto three lines each; in the content area the
+same table is 661 px wide and fits on one line. The card itself still
+renders with Backstage's `InfoCard` component from `@backstage/core-components`
+— that name is unrelated to the `'info'`/`'content'` placement type.
 
 | column         | series it reads                            |
 | -------------- | ------------------------------------------ |
