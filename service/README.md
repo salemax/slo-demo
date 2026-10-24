@@ -161,7 +161,7 @@ docker buildx create --name multiarch --driver docker-container --use # once
 docker buildx build --platform linux/amd64,linux/arm64 -t slo-demo-service .
 
 # Build + load the native-arch image to run it locally:
-docker buildx build --platform linux/amd64 -t slo-demo-service --load .
+docker buildx build --platform linux/arm64 -t slo-demo-service --load .
 
 # PORT is fixed at 8080 (EXPOSE'd); ADMIN_ADDR defaults to 0.0.0.0:8081
 # *inside* the image (the loopback default would be unreachable from
