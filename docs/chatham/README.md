@@ -2,6 +2,8 @@
 
 Local Chatham agents have no sandbox and act with the credentials of the machine they run on. They therefore run in this container, never directly on the owner's Mac (decision D11).
 
+**This file describes the 2026-10-03 setup.** Two things below are stale, per `docs/PLAN.md` ("Agent Chatham changed on 2026-10-12"): the reviewer agent was removed (one author agent remains), and GitHub access now goes through the Chatham GitHub App instead of the `GH_TOKEN` PAT described in "Credentials" below — PR authorship confirms this (`app/agent-chatham-connect`, not `salemax`, from PR #35 on). The App's exact permissions, including whether it can push under `.github/workflows/`, are not verified; check the repo's GitHub App settings before relying on either.
+
 ## What the container has, and does not have
 
 | Has | Does not have |
@@ -74,4 +76,4 @@ Both can run in the same container image. Run one container per agent so each ha
 ## Not yet verified
 
 - Whether Phase 2 compose checks can run in the container (it has no Docker). Decide when Phase 2 starts.
-- Observed in the test run (PR #10): agents open PRs and reviews as the owner's GitHub account through `GH_TOKEN`, not as `agent-chatham[bot]`.
+- Observed in the test run (PR #10): agents opened PRs and reviews as the owner's GitHub account through `GH_TOKEN`, not as `agent-chatham[bot]`. Superseded 2026-10-12: PRs now appear under `app/agent-chatham-connect` (see the note at the top of this file).
