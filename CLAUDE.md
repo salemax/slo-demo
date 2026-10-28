@@ -52,7 +52,7 @@ The owner (Saša) must understand and be able to explain every decision in this 
 Work happens in two places:
 
 - Claude Code in the owner's terminal.
-- Agent Chatham channels, where agents are local agents running the Claude Code harness. PRs created there are committed by `agent-chatham[bot]`.
+- Agent Chatham channels, where agents are local agents running the Claude Code harness. PRs created there are authored by `app/agent-chatham-connect`, the Chatham GitHub App (since 2026-10-12; see `docs/PLAN.md`'s decision log for D12).
 
 Every agent follows this file. Chatham agents have no roles: each one gets a task in its brief and implements it.
 
