@@ -4,8 +4,9 @@ Minimal Go HTTP service: a health check, Prometheus metrics (process-level
 plus SLO-relevant HTTP metrics), two placeholder business endpoints, and
 runtime-adjustable fault injection through a separate admin API. Endpoint
 behaviour, metric names and the admin API are placeholders agreed with the
-owner for Phase 1 (see `docs/PLAN.md` decision log); a Dockerfile and load
-generator land in later PRs.
+owner for Phase 1 (see `docs/PLAN.md` decision log). A multi-arch Dockerfile
+is covered below ("Docker"); the load generator is a separate module, see
+`loadgen/README.md`.
 
 ## Endpoints
 
