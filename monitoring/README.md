@@ -59,8 +59,9 @@ curl -s localhost:9090/api/v1/targets | jq -c '.data.activeTargets[] | {job: .la
 ```
 
 `restart: unless-stopped` restarts the service after a crash, and its counters
-then start from zero. `rate()` handles this as a counter reset, but keep it in
-mind for the burn-rate rules in Phase 2.
+then start from zero. `rate()` handles this as a counter reset; the burn-rate
+recording rules below use `sum(rate(...))` (never `rate(sum(...))`) to
+account for it.
 
 ## Load generator
 
