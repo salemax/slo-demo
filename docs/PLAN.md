@@ -182,7 +182,7 @@ A restarted agent came back online (owner, 2026-10-05). Not verified: that the U
 - [ ] GitHub Actions CI (Go checks workflow for `service/` and `loadgen/` is done, PRs #19 and #28; `go-gate` not a required check yet):
   - [x] lint, test, build (Go: `go.yml`),
   - [ ] multi-arch image push to GHCR,
-  - [ ] `helm lint` and chart tests,
+  - [ ] `helm lint --strict` and `helm template` for every chart under `deploy/helm/*/` are done (`helm.yml`, `helm-gate` gate job); in-cluster `helm test` is not covered yet,
   - [x] rule tests (#50: `promtool.yml` runs `check config`, `check rules` and `test rules` on every PR; the `promtool` check is not a required check yet, same as `go-gate`).
 - [ ] ArgoCD (later): GitOps deployment to kind
 
