@@ -1,0 +1,106 @@
+# Values for the upstream prometheus-community/prometheus chart (version pinned
+# in kind.sh). Goal: run the same Prometheus, with the same config and the
+# unchanged rule files from monitoring/prometheus/rules/, as docker compose.
+# Only what differs from the chart defaults is set here.
+
+# Same image as monitoring/docker-compose.yml. The chart's default is the
+# quay.io copy of v3.16.0. Putting the tag into `repository` (the chart runs it
+# through tpl) keeps the tag readable next to the digest: with a digest set the
+# chart renders `repository@digest` and drops `tag`. The digest is the
+# multi-arch index (includes linux/arm64).
+server:
+  image:
+    repository: docker.io/prom/prometheus:v3.15.0
+    digest: sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e
+
+  global:
+    # PLACEHOLDERS (owner decision), copied from monitoring/prometheus/prometheus.yml.
+    scrape_interval: 15s
+    evaluation_interval: 15s
+    # Not set in compose, where the Prometheus default (10s) applies; the
+    # chart default is also 10s, so no override is needed.
+
+  # PLACEHOLDER, copied from monitoring/docker-compose.yml: 30d is D4 (28d)
+  # plus a margin. Keep it above D4.
+  retention: 30d
+
+  # The rule files are NOT copied into this chart's values. kind.sh creates the
+  # ConfigMap `slo-demo-prometheus-rules` straight from
+  # monitoring/prometheus/rules/*.yml, so the promtool-tested files are the
+  # only copy.
+  extraConfigmapMounts:
+    - name: slo-rules
+      mountPath: /etc/prometheus/rules
+      configMap: slo-demo-prometheus-rules
+      readOnly: true
+
+# Off: the reloader sidecar would hot-reload the chart's own config volume, but
+# our rules live in a ConfigMap it does not watch. Fewer images and containers;
+# after a rule change, re-run kind.sh up and restart the prometheus-server pod
+# (see the README).
+configmapReload:
+  prometheus:
+    enabled: false
+
+serverFiles:
+  prometheus.yml:
+    # Same glob as monitoring/prometheus/prometheus.yml. A list in values
+    # replaces the chart's default list, so the chart's own (empty) rule files
+    # are no longer loaded.
+    rule_files:
+      - /etc/prometheus/rules/*.yml
+
+# The chart ships nine default scrape jobs (Kubernetes API server, nodes,
+# cadvisor, endpoints, pods, ...). All are disabled: like compose, this
+# Prometheus scrapes only the demo service. The loadgen has no metrics.
+scrapeConfigs:
+  prometheus:
+    enabled: false
+  kubernetes-api-servers:
+    enabled: false
+  kubernetes-nodes:
+    enabled: false
+  kubernetes-nodes-cadvisor:
+    enabled: false
+  kubernetes-service-endpoints:
+    enabled: false
+  kubernetes-service-endpoints-slow:
+    enabled: false
+  prometheus-pushgateway:
+    enabled: false
+  kubernetes-services:
+    enabled: false
+  kubernetes-pods:
+    enabled: false
+  kubernetes-pods-slow:
+    enabled: false
+  # The job name is load-bearing: the recording and alerting rules select on
+  # job="slo-demo-service". A static target (the Service DNS name of the `demo`
+  # release, namespace default) instead of Kubernetes service discovery: with
+  # one service there is nothing to discover, and it needs no RBAC. Static also
+  # means that scaling to zero keeps the target listed and failing (up == 0),
+  # unlike SD, where the target would vanish.
+  slo-demo-service:
+    enabled: true
+    job_name: slo-demo-service
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["demo-slo-demo-service.default.svc:8080"]
+
+# Without service discovery the server needs no ClusterRole.
+rbac:
+  create: false
+
+# Not needed here (no Alertmanager exists in the compose stack either; alerts
+# are only visible in Prometheus, see docs/PLAN.md).
+alertmanager:
+  enabled: false
+# Pushgateway: nothing pushes metrics.
+prometheus-pushgateway:
+  enabled: false
+# node-exporter: host metrics are not part of any SLO.
+prometheus-node-exporter:
+  enabled: false
+# kube-state-metrics: cluster object metrics are not part of any SLO.
+kube-state-metrics:
+  enabled: false
