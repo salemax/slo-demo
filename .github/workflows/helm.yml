@@ -1,0 +1,85 @@
+name: helm
+
+# No path filter: a skipped path-filtered workflow reports no status, so it
+# could never be a required check. It runs on every PR instead, same as go.yml.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  # Helm ships as a release tarball, not an action. Keep in sync with
+  # .tool-versions; the first step fails if the two drift apart.
+  HELM_VERSION: 4.3.1
+  # From helm-v4.3.1-linux-amd64.tar.gz.sha256sum in the official v4.3.1 release
+  # (get.helm.sh, the download location Helm documents).
+  HELM_SHA256: 0403a88ae20913d11b10a2467b50087721fea7581736da6b9d3992f5357fe54b
+
+jobs:
+  # Every chart under deploy/helm/ is found by the glob below, so a new chart
+  # is covered without editing this file.
+  charts:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The job never pushes, so do not leave the token in the checkout.
+          persist-credentials: false
+
+      - name: helm version matches .tool-versions
+        run: |
+          pinned="$(awk '$1 == "helm" { print $2 }' .tool-versions)"
+          echo ".tool-versions: helm $pinned"
+          echo "workflow:       helm $HELM_VERSION"
+          test "$pinned" = "$HELM_VERSION"
+
+      - name: Install helm
+        env:
+          RUNNER_TEMP_DIR: ${{ runner.temp }}
+        run: |
+          cd "$RUNNER_TEMP_DIR"
+          curl -sSfL -o helm.tar.gz \
+            "https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz"
+          echo "${HELM_SHA256}  helm.tar.gz" | sha256sum -c -
+          tar -xzf helm.tar.gz --strip-components=1 linux-amd64/helm
+          echo "$RUNNER_TEMP_DIR" >> "$GITHUB_PATH"
+
+      - name: helm version
+        run: helm version
+
+      # --strict turns lint warnings into failures.
+      # helm template renders with default values only; it fails on template
+      # errors and on invalid YAML in the output, not on Kubernetes API
+      # validity. That needs a cluster or kubeconform, not part of this job.
+      - name: helm lint and template
+        run: |
+          shopt -s nullglob
+          charts=(deploy/helm/*/)
+          # Fail if the glob matches nothing, so an empty or moved chart
+          # directory cannot pass silently.
+          if [ "${#charts[@]}" -eq 0 ]; then
+            echo "no charts found under deploy/helm/"
+            exit 1
+          fi
+          for chart in "${charts[@]}"; do
+            echo "== helm lint --strict $chart"
+            helm lint --strict "$chart"
+            echo "== helm template $chart"
+            helm template "$chart" > /dev/null
+          done
+
+  # One stable check name for branch protection. The charts job name does not
+  # change with the chart list, but this gate also turns a skipped or cancelled
+  # charts job into a failure: a skipped required check counts as passing.
+  helm-gate:
+    needs: charts
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: All Helm checks passed
+        env:
+          RESULT: ${{ needs.charts.result }}
+        run: |
+          echo "charts: $RESULT"
+          test "$RESULT" = "success"
