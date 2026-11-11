@@ -8,7 +8,7 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 
 ## Where we left off (updated 2026-11-11)
 
-**Current state:** Phases 0, 1, 2 and 3 are done. Phase 4 has started: the Helm chart for the service is merged (#56). Next is the kind cluster (see "How to continue" below). No open PRs on 2026-11-11; `main` at #66.
+**Current state:** Phases 0, 1, 2 and 3 are done. Phase 4: Helm charts for the service (#56) and loadgen (#70), `helm lint`/`helm template` CI with `helm-gate` (#68), and the full stack on kind (#69, #71: `deploy/kind/kind.sh up`, images tagged by commit SHA). Next is the multi-arch image push to GHCR (see "How to continue" below). No open PRs at the end of 2026-11-11; `main` at #71.
 
 **Done:** Phase 0 complete: `CLAUDE.md` and this plan, `.gitignore`, gitleaks secret scanning (local hook plus CI), `.tool-versions` (golang 1.27.1, gitleaks 8.30.1, promtool 3.15.0), Apache-2.0 license, README skeleton, branch protection on `main` (ruleset `initial`: PR required, squash only, `gitleaks` check required, no force-push or deletion, no bypass), and the Chatham test run (PR #10). D1-D6 are recorded as **placeholders** (owner delegated them, see Decisions): they unblock work but are not a considered choice.
 
@@ -37,6 +37,14 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 
 **Phase 4 started:** Helm chart `deploy/helm/slo-demo-service/` (#56). `promtool` CI (#50) covers the rule tests item.
 
+**Phase 4 session of 2026-11-11** (agents in parallel worktrees, each PR reviewed by running it from the owner's Claude Code session):
+- #68 `helm.yml`: `helm lint --strict` and `helm template` for every chart under `deploy/helm/*/`, gate job `helm-gate` (owner added it to the `initial` ruleset). A mutated template made the loop fail, so a broken chart is caught. Open PRs that predate a new required workflow need `gh pr update-branch` before the check can report.
+- #69 `deploy/kind/`: pinned single-node cluster (`kindest/node:v1.37.0`, digest checked against the kind v0.33.0 release notes), `kind.sh up|down`. Always pass `--context kind-slo-demo`: creating another kind cluster switches the current context.
+- #70 loadgen chart: no Service, all loadgen defaults left to the binary (D5 timeout unchanged), `128Mi` limit equals compose's `128m` (134217728 bytes).
+- #71 monitoring on kind: Prometheus 3.15.0 and Grafana 13.2.3 (same digests as compose) from the prometheus-community 29.47.1 and grafana-community 14.4.1 charts; rule files and dashboard JSON loaded unchanged from `monitoring/`. Reviewed live: 10% injected errors gave a 5m burn of 14.93 (= 0.0746 / 0.005); `SLOTargetDown` (not `SLOTargetAbsent`) fires when the service is scaled to 0, because the static target stays listed with `up == 0`.
+- Known limits on kind: scrape goes through the Service, so the SLI is only correct with 1 service replica; every `kind.sh down` loses Prometheus history, so long burn-rate windows are meaningless for the first hours.
+- Local tools installed on the owner's Mac, checksum-verified, in `~/.local/bin`: kind v0.33.0, kubectl v1.37.2, Helm v4.3.1.
+
 **Agent Chatham changed on 2026-10-12 (owner report, not verified from this session):** the reviewer agent was removed, so only the author agent remains. The owner gave Agent Chatham access to the GitHub repo through the Chatham GitHub App instead of the `GH_TOKEN` PAT, and the owner accepts this. GitHub confirms the effect: PRs #35, #37, #39 and #40 are authored by `app/agent-chatham-connect`, not `salemax`. None of them has a GitHub review. Reviews are now done by the owner and by the owner's Claude Code session, which runs each agent PR before merge. D12 is superseded (see Decisions). The setup below is the history from 2026-10-03; the reviewer parts, the PAT findings and the `GH_TOKEN` parts no longer describe the current setup. Not verified: whether the App can push under `.github/workflows/` (the PAT could not, see below) and what exact permissions the App has. Check both in the repo's GitHub App settings before relying on either.
 
 **Agent Chatham, original setup (2026-10-03):**
@@ -60,7 +68,7 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 
 **How to continue in the next session**
 1. Read `CLAUDE.md` and this file, then `git switch main && git pull`. Check `gh pr list` and delete merged local branches.
-2. Next is the Phase 4 kind cluster (arm64). Owner decides first which monitoring components run on the cluster (see the Phase 4 Helm item). After that: multi-arch image push to GHCR, `helm lint` and chart tests in CI, ArgoCD later. Briefs have no role line (template below); they must require real command output, not placeholders, and tell the agent to install Go into its home volume if `~/.local/go` is missing.
+2. Next in Phase 4: multi-arch image push to GHCR (then the charts can default to registry images instead of `kind load`), a kind-based smoke test in CI, ArgoCD later. Owner items still open: add `rules` (the `promtool` check) to the `initial` ruleset; decide on the #71 open questions (config reloader off, local-path PVC, docker.io vs quay.io). Briefs have no role line (template below); they must require real command output, not placeholders, and tell the agent to install Go into its home volume if `~/.local/go` is missing.
 3. One agent task at a time. Review each agent PR by running the checks myself (vet, tests, binary, `curl`), as done for #17, #18, #22, #25 and #26.
 4. Update this section at the end of every session.
 
