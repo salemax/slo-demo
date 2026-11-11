@@ -6,7 +6,9 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 
 ---
 
-## Where we left off (updated 2026-10-12)
+## Where we left off (updated 2026-11-11)
+
+**Current state:** Phases 0, 1, 2 and 3 are done. Phase 4 has started: the Helm chart for the service is merged (#56). Next is the kind cluster (see "How to continue" below). No open PRs on 2026-11-11; `main` at #66.
 
 **Done:** Phase 0 complete: `CLAUDE.md` and this plan, `.gitignore`, gitleaks secret scanning (local hook plus CI), `.tool-versions` (golang 1.27.1, gitleaks 8.30.1, promtool 3.15.0), Apache-2.0 license, README skeleton, branch protection on `main` (ruleset `initial`: PR required, squash only, `gitleaks` check required, no force-push or deletion, no bypass), and the Chatham test run (PR #10). D1-D6 are recorded as **placeholders** (owner delegated them, see Decisions): they unblock work but are not a considered choice.
 
@@ -21,9 +23,9 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 **Phase 2 started (2026-10-09), first parallel agent test (two authors, disjoint directories; a deliberate exception to the one-task rule):**
 - `monitoring/docker-compose.yml` (#29): service (built from `service/Dockerfile`), Prometheus v3.15.0 and Grafana 13.2.3, pinned by tag and index digest. Every port is published on `127.0.0.1`, the Grafana password has no fallback (`monitoring/.env`, git-ignored). Scrape and evaluation interval 15s and job name `slo-demo-service` are **placeholders**. No rules, alerts or dashboards yet. Reviewed by running it natively on arm64: target `up`, `http_requests_total` returns series, datasource health OK.
 - `loadgen/Dockerfile` (#30): same pattern as the service image (distroless `static` nonroot, cross-compiled, digests re-verified). No `ENV` defaults on purpose: the built-in target `http://localhost:8080` is the container itself, so every container run must pass `LOADGEN_TARGET`. Reviewed by running it: 600 requests in 30s, `errors=0`, `SIGTERM` exits 0.
-- Loadgen is **not yet part of the compose stack**, so the first Phase 2 item is half done.
+- Loadgen joined the compose stack in #32.
 
-**Phase 2 alerting rules and dashboard are in (#42, #44, merged 2026-10-12).** Recording rules (#40), alerts (#42) and the dashboard (#44) are done; only the documented experiments are left. Owner decision on #42: `for: 1m` on the two outage alerts, so a single missed 15 s scrape does not page. An idle service (NaN ratios) fires nothing, and `up` is the only signal that tells idle from healthy.
+**Phase 2 alerting rules and dashboard are in (#42, #44, merged 2026-10-12).** Recording rules (#40), alerts (#42) and the dashboard (#44) are done; the documented experiments followed in #46 (`monitoring/EXPERIMENTS.md`, run 2026-10-13), so **Phase 2 is complete**. The burn-rate alerts have still not been seen firing live, only in `promtool` tests. Owner decision on #42: `for: 1m` on the two outage alerts, so a single missed 15 s scrape does not page. An idle service (NaN ratios) fires nothing, and `up` is the only signal that tells idle from healthy.
 
 **Findings from the reviews that the Phase 2 rules must account for:**
 - A full outage produces *no data*, not a 100% bad ratio: the service records nothing when nothing reaches it. Rules need `up{job="slo-demo-service"}` or `absent()` next to the ratio, and `http_requests_total` only exists after the first request.
@@ -31,7 +33,9 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 - The loadgen timeout is 10s, twice the top bucket (D5, owner decision 2026-10-11, #39). A request it abandons is recorded as `499` with a duration of about 10s, so it always lands in `+Inf`. With the old 5s timeout it landed in `le="5"` or `+Inf` at random.
 - Lowering the loadgen timeout creates `499` events, and `499` is a bad event under D1, so the SLI partly measures the loadgen's configuration. Keep in mind when running experiments.
 
-**Backstage (Phase 3, started early):** scaffold in `backstage/` (#15) with a workaround for upstream bug backstage/backstage#35964; catalog entry `slo-demo-service` plus a `User` entity `salemax` (#16). How to run it: README, "Backstage". The SLO plugin and the SLO annotation were added later, per D8 (frontend-only via proxy, decided 2026-10-15, #48, #49); see Phase 3 below, now done.
+**Backstage (Phase 3, started early):** scaffold in `backstage/` (#15) with a workaround for upstream bug backstage/backstage#35964; catalog entry `slo-demo-service` plus a `User` entity `salemax` (#16). How to run it: README, "Backstage". The SLO plugin and the SLO annotation were added later, per D8 (frontend-only via proxy, decided 2026-10-15, #48, #49); see Phase 3 below, now done. Not verified by anyone: Phase 3's done-criterion (live SLO data on the service page matches Grafana) with the full stack and Backstage running together; the agent VM had no disk space for `yarn install`.
+
+**Phase 4 started:** Helm chart `deploy/helm/slo-demo-service/` (#56). `promtool` CI (#50) covers the rule tests item.
 
 **Agent Chatham changed on 2026-10-12 (owner report, not verified from this session):** the reviewer agent was removed, so only the author agent remains. The owner gave Agent Chatham access to the GitHub repo through the Chatham GitHub App instead of the `GH_TOKEN` PAT, and the owner accepts this. GitHub confirms the effect: PRs #35, #37, #39 and #40 are authored by `app/agent-chatham-connect`, not `salemax`. None of them has a GitHub review. Reviews are now done by the owner and by the owner's Claude Code session, which runs each agent PR before merge. D12 is superseded (see Decisions). The setup below is the history from 2026-10-03; the reviewer parts, the PAT findings and the `GH_TOKEN` parts no longer describe the current setup. Not verified: whether the App can push under `.github/workflows/` (the PAT could not, see below) and what exact permissions the App has. Check both in the repo's GitHub App settings before relying on either.
 
@@ -47,8 +51,8 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 
 **Still open:**
 - Dockerfile and container usage (multi-arch build, published ports, `ADMIN_ADDR` in a container): `service/README.md`, "Docker".
-- `go-gate` (from `go.yml`, #28) is **not** a required check yet: the `main` ruleset requires only `gitleaks`. Owner: add `go-gate` to the `initial` ruleset.
-- Agents cannot push files under `.github/workflows/` (the fine-grained PAT has no `Workflows` permission, kept that way per D11). Workflow changes go through the owner's Claude Code session or the owner.
+- `go-gate` (from `go.yml`, #28) and `promtool` (from `promtool.yml`, #50) are **not** required checks yet: the `main` ruleset requires only `gitleaks`. Owner: add both to the `initial` ruleset.
+- Workflow changes under `.github/workflows/` go through the owner's Claude Code session or the owner. The old PAT had no `Workflows` permission (per D11); whether the Chatham GitHub App has it is unchecked.
 - Admin API body validation from the #22 nit is fixed: trailing data (`{"rules":[]}}`) is rejected since #35, and `PUT null` and other non-object bodies (`[]`, `"x"`) are rejected with a clear message since #37. An empty body answers `request body is empty` and a truncated one `malformed JSON` since #55, rather than the generic `invalid request body`.
 - Unverified: whether Anthropic's terms allow a Pro token in a third-party tool (accepted risk, see decision log). Owner should note the expiry date of the fine-grained GitHub token and renew it before then.
 - Remove the `@yarnpkg/core` pin in `backstage/package.json` when backstage/backstage#35964 is fixed.
@@ -56,7 +60,7 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 
 **How to continue in the next session**
 1. Read `CLAUDE.md` and this file, then `git switch main && git pull`. Check `gh pr list` and delete merged local branches.
-2. D1-D6 are decided, the recording rules (#40) and alerting rules (#42) are merged. Next are the documented experiments. Owner to decide the run length first: short runs of 10-15 minutes (5m and 30m windows, Fast alert; Claude Code suggests this first) or one run of 1-2 hours (windows diverge, alerts fire and resolve in the real order). On a fresh stack every window covers the same few minutes of data, so the 1h, 6h and 3d burn rates look alike and alerts fire together; a run on a warm stack gives more honest numbers. Briefs have no role line (template below); they must require real command output, not placeholders, and tell the agent to install Go into its home volume if `~/.local/go` is missing.
+2. Next is the Phase 4 kind cluster (arm64). Owner decides first which monitoring components run on the cluster (see the Phase 4 Helm item). After that: multi-arch image push to GHCR, `helm lint` and chart tests in CI, ArgoCD later. Briefs have no role line (template below); they must require real command output, not placeholders, and tell the agent to install Go into its home volume if `~/.local/go` is missing.
 3. One agent task at a time. Review each agent PR by running the checks myself (vet, tests, binary, `curl`), as done for #17, #18, #22, #25 and #26.
 4. Update this section at the end of every session.
 
