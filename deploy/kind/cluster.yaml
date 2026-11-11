@@ -1,0 +1,12 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: slo-demo
+nodes:
+  - role: control-plane
+    # Kubernetes v1.37.0, tag + digest copied from the kind v0.33.0 release notes.
+    # The digest is of the multi-arch index (it includes linux/arm64), so this
+    # runs natively on Apple Silicon.
+    image: kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
+# No extraPortMappings on purpose: nothing is published on the host. Access is
+# `kubectl port-forward`, which also keeps the service's loopback-only admin API
+# reachable without exposing it to the network.
