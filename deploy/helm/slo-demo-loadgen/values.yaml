@@ -1,0 +1,40 @@
+# Placeholder: one loadgen is the whole offered load. A second replica would
+# double the request rate, so this is not a scaling knob.
+replicaCount: 1
+
+image:
+  # No registry is baked in. With kind, build locally and `kind load docker-image`
+  # it; once the image is pushed to a registry, override repository and tag.
+  repository: slo-demo-loadgen
+  tag: dev
+  pullPolicy: IfNotPresent
+
+# Base URL of the service, passed as LOADGEN_TARGET. The binary's built-in
+# default (http://localhost:8080) is the loadgen pod itself, so this must
+# always be set. The default is the in-cluster Service DNS name of the
+# slo-demo-service chart installed as release "demo" in the same namespace
+# (<release>-slo-demo-service). Override it for another release name or
+# namespace, e.g. http://<release>-slo-demo-service.<namespace>:8080.
+target: http://demo-slo-demo-service:8080
+
+# Rate, route mix, timeout, in-flight cap and report interval are
+# deliberately NOT values: their defaults are owner placeholders (the timeout
+# is decision D5) that live only in the Go code, and the compose stack does
+# not set them either. To experiment, use `kubectl set env` on the Deployment
+# rather than forking the defaults into this chart.
+
+# PLACEHOLDER, copied from `mem_limit: 128m` in monitoring/docker-compose.yml
+# (measured there with docker stats). The worst case scales with the in-flight
+# cap, not the rate: revisit if the cap changes. The CPU request is also an
+# untuned placeholder.
+resources:
+  requests:
+    cpu: 25m
+    memory: 32Mi
+  limits:
+    memory: 128Mi
+
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
