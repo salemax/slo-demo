@@ -1,0 +1,71 @@
+# Values for the grafana-community/grafana chart (version pinned in kind.sh).
+# The chart moved: grafana/helm-charts marks its `grafana` chart deprecated
+# (last version there 10.5.15); current releases are published from
+# https://grafana-community.github.io/helm-charts.
+
+# Same image as monitoring/docker-compose.yml. The chart's default tag is the
+# `-distroless` variant of its own appVersion (13.3.1); compose runs the plain
+# 13.2.3 image, so both are set explicitly. `sha` is the multi-arch index
+# digest (includes linux/arm64), without the `sha256:` prefix.
+image:
+  repository: grafana/grafana
+  tag: "13.2.3"
+  sha: b28bae15e219c998fb0e0424ed724930cc61b1f61fb404d47c862f9a23f9e572
+
+# No password in this repo. kind.sh creates the Secret `grafana-admin` from
+# $GRAFANA_ADMIN_PASSWORD and fails if it is unset; the chart then neither
+# generates nor stores a password itself.
+admin:
+  existingSecret: grafana-admin
+  userKey: admin-user
+  passwordKey: admin-password
+
+# Same datasource as monitoring/grafana/provisioning/datasources/prometheus.yml:
+# the dashboard JSON refers to uid `prometheus`. Only the URL differs: the
+# in-cluster Service of the prometheus chart (release `prometheus`, port 80).
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        uid: prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus-server.default.svc:80
+        isDefault: true
+        editable: false
+
+# The dashboard JSON is not copied here. kind.sh creates the ConfigMap
+# `slo-demo-dashboards` from
+# monitoring/grafana/provisioning/dashboards/json/slo-demo.json; the chart
+# mounts it at /var/lib/grafana/dashboards/default. The provider mirrors
+# monitoring/grafana/provisioning/dashboards/slo-demo.yml (read-only, no UI edits).
+dashboardsConfigMaps:
+  default: slo-demo-dashboards
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+      - name: slo-demo
+        type: file
+        folder: ""
+        disableDeletion: true
+        allowUiUpdates: false
+        updateIntervalSeconds: 30
+        options:
+          path: /var/lib/grafana/dashboards/default
+          foldersFromFilesStructure: false
+
+# No persistence: the datasource and dashboard
+# are provisioned, so nothing in Grafana needs to survive a pod restart.
+persistence:
+  enabled: false
+
+# The chart's ClusterRole only serves the dashboard/datasource sidecars, which
+# are off; dashboards and the datasource come from plain ConfigMaps.
+rbac:
+  create: false
+
+# `helm test` pod (bats image): not used, and one more image to pull.
+testFramework:
+  enabled: false

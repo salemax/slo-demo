@@ -31,8 +31,8 @@ loadgen ──HTTP──▶ service ──/metrics──▶ Prometheus ──▶
 | `loadgen/` | Steady open-loop traffic generator for SLO experiments | built |
 | `monitoring/` | docker-compose stack; Prometheus rules (SLIs, error budget, burn rate, alerts) with `promtool` tests; provisioned Grafana dashboard | built |
 | `backstage/` | Backstage app with a plugin showing SLO target, compliance, budget and burn rate | built |
-| `deploy/helm/`, `deploy/kind/` | Helm chart, deployed to a local kind cluster | chart and kind cluster for the service built; no monitoring on the cluster or published image yet |
-| `.github/workflows/` | CI: Go vet, race tests, build and `go mod tidy -diff` (`go.yml`); `promtool` rule checks and tests (`promtool.yml`); gitleaks secret scanning (`secret-scan.yml`) | built; no `helm lint` or image build yet |
+| `deploy/helm/`, `deploy/kind/` | Helm chart, deployed to a local kind cluster | charts for the service and loadgen; `kind.sh up` runs service, loadgen, Prometheus and Grafana on a local kind cluster; no published image yet |
+| `.github/workflows/` | CI: Go vet, race tests, build and `go mod tidy -diff` (`go.yml`); `promtool` rule checks and tests (`promtool.yml`); gitleaks secret scanning (`secret-scan.yml`) | built (`helm.yml`: `helm lint --strict` and `helm template` for every chart under `deploy/helm`, gate job `helm-gate`); no image build yet |
 
 All container images must support `linux/arm64` and `linux/amd64`.
 
