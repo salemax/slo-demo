@@ -1,0 +1,3 @@
+Loadgen sends traffic to {{ .Values.target }}.
+Progress and the final summary are in its log:
+  kubectl -n {{ .Release.Namespace }} logs deploy/{{ include "slo-demo-loadgen.fullname" . }} -f

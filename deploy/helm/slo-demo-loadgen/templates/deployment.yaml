@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "slo-demo-loadgen.fullname" . }}
+  labels:
+    {{- include "slo-demo-loadgen.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "slo-demo-loadgen.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "slo-demo-loadgen.labels" . | nindent 8 }}
+    spec:
+      # loadgen never talks to the Kubernetes API.
+      automountServiceAccountToken: false
+      # On SIGTERM loadgen stops sending and drains in-flight requests, which
+      # can take up to the client timeout (10s, D5). The Kubernetes default
+      # terminationGracePeriodSeconds of 30s covers that, so it is left alone.
+      securityContext:
+        runAsNonRoot: true
+        # distroless "nonroot" user; matches USER in loadgen/Dockerfile.
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: loadgen
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            # The only variable set, like in the compose stack.
+            - name: LOADGEN_TARGET
+              value: {{ .Values.target | quote }}
+          # No ports and no probes: loadgen listens on nothing, so there is
+          # nothing to probe. The kubelet restarts the process if it exits
+          # (it exits non-zero on a bad config).
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
