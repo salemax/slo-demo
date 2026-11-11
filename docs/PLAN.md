@@ -178,7 +178,7 @@ A restarted agent came back online (owner, 2026-10-05). Not verified: that the U
 ## Phase 4: Deployment
 
 - [x] Helm chart for the service (`deploy/helm/slo-demo-service/`; monitoring components on the cluster are decided with the kind item)
-- [ ] Local cluster with kind (arm64)
+- [ ] Local cluster with kind (arm64) (cluster and service done: `deploy/kind/` has the pinned single-node kind config and a `kind.sh up|down` script that builds, loads and installs the service chart; monitoring on the cluster still follows)
 - [ ] GitHub Actions CI (Go checks workflow for `service/` and `loadgen/` is done, PRs #19 and #28; `go-gate` not a required check yet):
   - [x] lint, test, build (Go: `go.yml`),
   - [ ] multi-arch image push to GHCR,
