@@ -115,20 +115,21 @@ node --version                  # v24.21.0
 corepack enable                 # once per Node install
 cd backstage
 yarn install                    # first run, and after dependency changes
-yarn start                      # frontend on :3000, backend on :7007
+yarn start                      # frontend on :3001, backend on :7007
 ```
 
-Open <http://localhost:3000>. The catalog lists `slo-demo-service` (from `backstage/catalog/slo-demo-service.yaml`) and the generated `example-website`. The `slo-demo-service` overview page has the SLO card; it reads Prometheus on `localhost:9090` through the Backstage proxy, so it shows "No data" unless the monitoring stack is running. Stop with `Ctrl+C` in the terminal that runs `yarn start`. If that terminal is gone, find and stop the processes:
+Open <http://localhost:3001>. The catalog lists `slo-demo-service` (from `backstage/catalog/slo-demo-service.yaml`) and the generated `example-website`. The `slo-demo-service` overview page has the SLO card; it reads Prometheus on `localhost:9090` through the Backstage proxy, so it shows "No data" unless the monitoring stack is running. Stop with `Ctrl+C` in the terminal that runs `yarn start`. If that terminal is gone, find and stop the processes:
 
 ```sh
-lsof -ti :3000 -ti :7007 | sort -u | xargs kill
+lsof -ti :3001 -ti :7007 | sort -u | xargs kill
 ```
 
 Notes:
 
 - Sign in as **Guest**. This is a local demo setup with no real authentication.
 - The catalog database is in memory (`better-sqlite3`, `:memory:`), so it is rebuilt from the YAML files on every start.
-- Backstage and Grafana both want port 3000. To see the SLO card with data, run the stack without Grafana: `docker compose -f monitoring/docker-compose.yml up -d --build service loadgen prometheus`. The card's dashboard link then points at Backstage's own port, so open the dashboard with Backstage stopped.
+- Backstage uses port 3001 because Grafana owns 3000, so the full stack and Backstage run side by side and the SLO card's dashboard link opens Grafana.
+- After pulling changes under `backstage/`, run `yarn install` again: a `node_modules` from before #49 fails with `Can't resolve '@internal/backstage-plugin-slo'`.
 
 ## Secret scanning
 
