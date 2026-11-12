@@ -189,7 +189,7 @@ A restarted agent came back online (owner, 2026-10-05). Not verified: that the U
 - [x] Local cluster with kind (arm64) (#69 cluster and service, #70 loadgen chart, and the monitoring PR: Prometheus and Grafana from the plain upstream charts, values in `deploy/kind/`; `kind.sh up` brings up the full stack)
 - [ ] GitHub Actions CI (Go checks workflow for `service/` and `loadgen/` is done, PRs #19 and #28; `go-gate` not a required check yet):
   - [x] lint, test, build (Go: `go.yml`),
-  - [ ] multi-arch image push to GHCR,
+  - [x] multi-arch image push to GHCR (`images.yml`: PRs build `linux/amd64,linux/arm64` without pushing; a push to `main` publishes `ghcr.io/salemax/slo-demo-{service,loadgen}:<7-char sha>` with SBOM and provenance; gate job `images-gate`),
   - [ ] `helm lint --strict` and `helm template` for every chart under `deploy/helm/*/` are done (`helm.yml`, `helm-gate` gate job); in-cluster `helm test` is not covered yet,
   - [x] rule tests (#50: `promtool.yml` runs `check config`, `check rules` and `test rules` on every PR; the `promtool` check is not a required check yet, same as `go-gate`).
 - [ ] ArgoCD (later): GitOps deployment to kind
