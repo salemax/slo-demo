@@ -25,6 +25,8 @@ yarn install
 yarn start
 ```
 
-Grafana also listens on port 3000, so if you run the stack and Backstage at
-the same time, give one of them another port (for Backstage, `app.listen.port`
-and `app.baseUrl` in an `app-config.local.yaml`).
+Backstage runs on <http://localhost:3001> because Grafana from the stack owns
+port 3000, so both run at the same time and the card's dashboard link works.
+
+If `yarn start` fails with `Can't resolve '@internal/backstage-plugin-slo'`,
+`node_modules` predates the plugin: run `yarn install` again.
