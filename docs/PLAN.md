@@ -59,7 +59,7 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 
 **Still open:**
 - Dockerfile and container usage (multi-arch build, published ports, `ADMIN_ADDR` in a container): `service/README.md`, "Docker".
-- `go-gate` (from `go.yml`, #28) and `promtool` (from `promtool.yml`, #50) are **not** required checks yet: the `main` ruleset requires only `gitleaks`. Owner: add both to the `initial` ruleset.
+- Owner: add `images-gate` (from `images.yml`, #75) to the `initial` ruleset. It is the only one of the CI gate checks not yet required: `gitleaks`, `go-gate`, `helm-gate` and `rules` (promtool) are already required.
 - Workflow changes under `.github/workflows/` go through the owner's Claude Code session or the owner. The old PAT had no `Workflows` permission (per D11); whether the Chatham GitHub App has it is unchecked.
 - Admin API body validation from the #22 nit is fixed: trailing data (`{"rules":[]}}`) is rejected since #35, and `PUT null` and other non-object bodies (`[]`, `"x"`) are rejected with a clear message since #37. An empty body answers `request body is empty` and a truncated one `malformed JSON` since #55, rather than the generic `invalid request body`.
 - Unverified: whether Anthropic's terms allow a Pro token in a third-party tool (accepted risk, see decision log). Owner should note the expiry date of the fine-grained GitHub token and renew it before then.
@@ -187,11 +187,11 @@ A restarted agent came back online (owner, 2026-10-05). Not verified: that the U
 
 - [x] Helm chart for the service (`deploy/helm/slo-demo-service/`; monitoring components on the cluster are decided with the kind item)
 - [x] Local cluster with kind (arm64) (#69 cluster and service, #70 loadgen chart, and the monitoring PR: Prometheus and Grafana from the plain upstream charts, values in `deploy/kind/`; `kind.sh up` brings up the full stack)
-- [ ] GitHub Actions CI (Go checks workflow for `service/` and `loadgen/` is done, PRs #19 and #28; `go-gate` not a required check yet):
+- [ ] GitHub Actions CI (Go checks workflow for `service/` and `loadgen/` is done, PRs #19 and #28; required checks on `initial` as of 2026-11-12: `gitleaks`, `go-gate`, `helm-gate` and `rules`; `images-gate` not required yet):
   - [x] lint, test, build (Go: `go.yml`),
   - [x] multi-arch image push to GHCR (`images.yml`: PRs build `linux/amd64,linux/arm64` without pushing; a push to `main` publishes `ghcr.io/salemax/slo-demo-{service,loadgen}:<7-char sha>` with SBOM and provenance; gate job `images-gate`),
   - [ ] `helm lint --strict` and `helm template` for every chart under `deploy/helm/*/` are done (`helm.yml`, `helm-gate` gate job); in-cluster `helm test` is not covered yet,
-  - [x] rule tests (#50: `promtool.yml` runs `check config`, `check rules` and `test rules` on every PR; the `promtool` check is not a required check yet, same as `go-gate`).
+  - [x] rule tests (#50: `promtool.yml` runs `check config`, `check rules` and `test rules` on every PR; the `promtool` check (`rules`) is a required check on `initial`).
 - [ ] ArgoCD (later): GitOps deployment to kind
 
 **Done when:** a fresh clone can bring up the full stack on kind by following the README, and CI is green on `main`.
