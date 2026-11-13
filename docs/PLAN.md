@@ -68,7 +68,7 @@ Phase order: 0 → 1 + 2 → 3 → 4.
 
 **How to continue in the next session**
 1. Read `CLAUDE.md` and this file, then `git switch main && git pull`. Check `gh pr list` and delete merged local branches.
-2. Next in Phase 4: multi-arch image push to GHCR (then the charts can default to registry images instead of `kind load`), a kind-based smoke test in CI, ArgoCD later. Owner items still open: add `rules` (the `promtool` check) to the `initial` ruleset; decide on the #71 open questions (config reloader off, local-path PVC, docker.io vs quay.io). Briefs have no role line (template below); they must require real command output, not placeholders, and tell the agent to install Go into its home volume if `~/.local/go` is missing.
+2. Next in Phase 4: the charts defaulting to the GHCR images instead of `kind load` (in progress, separate PR), a kind-based smoke test in CI, ArgoCD later. Owner items still open: add `images-gate` to the `initial` ruleset; decide on the #71 open questions (config reloader off, local-path PVC, docker.io vs quay.io). Briefs have no role line (template below); they must require real command output, not placeholders, and tell the agent to install Go into its home volume if `~/.local/go` is missing.
 3. One agent task at a time. Review each agent PR by running the checks myself (vet, tests, binary, `curl`), as done for #17, #18, #22, #25 and #26.
 4. Update this section at the end of every session.
 
