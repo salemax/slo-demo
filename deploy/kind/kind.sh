@@ -37,10 +37,12 @@ up)
   done
   # Explicit --kube-context: never deploy into whatever cluster is current.
   # The service goes first: the loadgen and Prometheus both target it.
+  # image.repository is overridden because the chart defaults to GHCR, but these
+  # are local builds (uncommitted code, SHAs that were never pushed).
   helm upgrade --install demo "$ROOT/deploy/helm/slo-demo-service" \
-    --set image.tag="$TAG" --kube-context "$CTX" --wait
+    --set image.repository=slo-demo-service --set image.tag="$TAG" --kube-context "$CTX" --wait
   helm upgrade --install loadgen "$ROOT/deploy/helm/slo-demo-loadgen" \
-    --set image.tag="$TAG" --kube-context "$CTX" --wait
+    --set image.repository=slo-demo-loadgen --set image.tag="$TAG" --kube-context "$CTX" --wait
 
   # Rules and dashboard are loaded from their original files in monitoring/, so
   # the promtool-tested files stay the single copy. `create --dry-run | apply`

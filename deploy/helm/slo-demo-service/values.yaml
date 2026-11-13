@@ -4,10 +4,13 @@
 replicaCount: 1
 
 image:
-  # No registry is baked in. With kind, build locally and `kind load docker-image`
-  # it; once the image is pushed to a registry, override repository and tag.
-  repository: slo-demo-service
-  tag: dev
+  repository: ghcr.io/salemax/slo-demo-service
+  # Empty means: defaults to the chart's appVersion (the commit SHA of the
+  # published image). Override with --set image.tag=<sha> for a newer image.
+  tag: ""
+  # IfNotPresent still fits: SHA tags are immutable, so a cached image is never
+  # stale, and images loaded with `kind load` (see deploy/kind/kind.sh) must not
+  # be pulled.
   pullPolicy: IfNotPresent
 
 service:

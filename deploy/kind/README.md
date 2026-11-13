@@ -28,7 +28,7 @@ export PATH="$HOME/.local/bin:$HOME/.docker/bin:$PATH"
 
 The node image is `kindest/node:v1.37.0`, so the cluster runs Kubernetes v1.37.0 while kubectl is v1.37.2. kubectl supports a skew of one minor version either way, and here both are v1.37, so there is no issue. If you bump one side, check that the skew stays within one minor version.
 
-The node image digest points at a multi-arch index that includes `linux/arm64` (checked with `docker buildx imagetools inspect`), and the service and loadgen images are built for the host architecture. The Prometheus and Grafana images are the same tag and digest as in compose (multi-arch indexes that include `linux/arm64`).
+The node image digest points at a multi-arch index that includes `linux/arm64` (checked with `docker buildx imagetools inspect`), and the locally built service and loadgen images are for the host architecture (the GHCR images are multi-arch: amd64 and arm64). The Prometheus and Grafana images are the same tag and digest as in compose (multi-arch indexes that include `linux/arm64`).
 
 ## Usage
 
@@ -43,7 +43,9 @@ It is safe to re-run: an existing cluster is reused, images are rebuilt and relo
 
 ### Image tags
 
-Both images are tagged with the commit SHA (`slo-demo-service:<sha>`, `slo-demo-loadgen:<sha>`), printed as `image tag: ...`. `kubectl --context kind-slo-demo get deploy -o wide` shows which commit runs. With uncommitted changes the tag is `<sha>-dirty-<unix epoch>`, unique per run, so a rebuilt dirty image is never mistaken for the old one. A new tag changes the pod template, so Helm replaces the pod: no `rollout restart` needed. Old images pile up inside the kind node until `kind.sh down`.
+The charts default to the published GHCR images, but `kind.sh` always runs your local checkout: it builds both images, loads them into the node and overrides `image.repository` (to `slo-demo-<app>`) and `image.tag` on both releases. To try the published images instead, install the charts directly without `kind.sh` (see the chart READMEs).
+
+Both locally built images are tagged with the commit SHA (`slo-demo-service:<sha>`, `slo-demo-loadgen:<sha>`), printed as `image tag: ...`. `kubectl --context kind-slo-demo get deploy -o wide` shows which commit runs. With uncommitted changes the tag is `<sha>-dirty-<unix epoch>`, unique per run, so a rebuilt dirty image is never mistaken for the old one. A new tag changes the pod template, so Helm replaces the pod: no `rollout restart` needed. Old images pile up inside the kind node until `kind.sh down`.
 
 Prometheus does not hot-reload changed rule files (the config reloader sidecar is off). After editing a rule, re-run `kind.sh up` and restart Prometheus: `kubectl --context kind-slo-demo rollout restart deploy/prometheus-server`.
 
