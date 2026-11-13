@@ -7,13 +7,23 @@ how Prometheus and Grafana run on the cluster is decided with the kind item in
 
 ## Install on a local kind cluster
 
-There is no published image yet, so build it and load it into kind:
+The chart defaults to the public GHCR image (`ghcr.io/salemax/slo-demo-service`,
+tag = the chart's `appVersion`, a commit SHA), so nothing needs to be built:
+
+```sh
+helm install demo deploy/helm/slo-demo-service --wait
+kubectl get pods -l app.kubernetes.io/instance=demo   # 1/1 Running
+```
+
+To run a different published image, pass its commit SHA ad hoc
+(`--set image.tag=<sha>`) or bump `appVersion` in `Chart.yaml` by PR. To run
+uncommitted code, build locally and point the chart at the local image:
 
 ```sh
 docker build -t slo-demo-service:dev service/
 kind load docker-image slo-demo-service:dev
-helm install demo deploy/helm/slo-demo-service --wait
-kubectl get pods -l app.kubernetes.io/instance=demo   # 1/1 Running
+helm install demo deploy/helm/slo-demo-service --wait \
+  --set image.repository=slo-demo-service --set image.tag=dev
 ```
 
 ## Reaching the APIs
@@ -38,9 +48,9 @@ is deliberately not a value.
 
 | key | default | note |
 |---|---|---|
-| `image.repository` | `slo-demo-service` | no registry baked in |
-| `image.tag` | `dev` | |
-| `image.pullPolicy` | `IfNotPresent` | needed for `kind load` images |
+| `image.repository` | `ghcr.io/salemax/slo-demo-service` | public multi-arch image (amd64, arm64) |
+| `image.tag` | `""` | empty = chart `appVersion` (`10b088d`, a commit SHA) |
+| `image.pullPolicy` | `IfNotPresent` | SHA tags are immutable; also keeps `kind load` images from being pulled |
 | `replicaCount` | `1` | placeholder; fault rules are per pod |
 | `service.type` / `service.port` | `ClusterIP` / `8080` | |
 | `resources` | 50m / 32Mi request, 64Mi limit | placeholder, untuned |

@@ -3,7 +3,8 @@ name: slo-demo-loadgen
 description: The slo-demo open-loop load generator (no Service, listens on nothing).
 type: application
 # Chart version; bump on any change to this chart.
-version: 0.1.0
-# Informational only: there is no published image yet (GHCR push is a
-# separate Phase 4 item), so the image tag comes from values, not from here.
-appVersion: "0.1.0"
+version: 0.2.0
+# The commit SHA of the image published to GHCR by .github/workflows/images.yml.
+# The Deployment uses it when image.tag is empty. Bumped by PR when a newer
+# image should become the default.
+appVersion: "10b088d"

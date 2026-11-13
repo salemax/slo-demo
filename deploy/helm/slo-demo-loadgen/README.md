@@ -12,16 +12,28 @@ SLI. Its own view is the log.
 
 ## Install on a local kind cluster
 
-There is no published image yet, so build and load it. The service must be
-installed first, otherwise loadgen logs connection errors until it exists.
+Both charts default to the public GHCR images (tag = the chart's `appVersion`,
+a commit SHA), so nothing needs to be built. The service must be installed
+first, otherwise loadgen logs connection errors until it exists.
+
+```sh
+helm install demo deploy/helm/slo-demo-service --wait
+helm install loadgen deploy/helm/slo-demo-loadgen --wait
+kubectl logs deploy/loadgen-slo-demo-loadgen -f
+```
+
+For a newer published image use `--set image.tag=<sha>` ad hoc, or bump
+`appVersion` in `Chart.yaml` by PR. To run uncommitted code, build and load
+local images and override the repository (`kind.sh` does this for you):
 
 ```sh
 docker build -t slo-demo-service:dev service/
 docker build -t slo-demo-loadgen:dev loadgen/
 kind load docker-image slo-demo-service:dev slo-demo-loadgen:dev
-helm install demo deploy/helm/slo-demo-service --wait
-helm install loadgen deploy/helm/slo-demo-loadgen --wait
-kubectl logs deploy/loadgen-slo-demo-loadgen -f
+helm install demo deploy/helm/slo-demo-service --wait \
+  --set image.repository=slo-demo-service --set image.tag=dev
+helm install loadgen deploy/helm/slo-demo-loadgen --wait \
+  --set image.repository=slo-demo-loadgen --set image.tag=dev
 ```
 
 Release name `loadgen` is used so the Deployment is not called
@@ -55,9 +67,9 @@ a lower timeout creates `499` events, which are bad events under D1.
 
 | key | default | note |
 |---|---|---|
-| `image.repository` | `slo-demo-loadgen` | no registry baked in |
-| `image.tag` | `dev` | |
-| `image.pullPolicy` | `IfNotPresent` | needed for `kind load` images |
+| `image.repository` | `ghcr.io/salemax/slo-demo-loadgen` | public multi-arch image (amd64, arm64) |
+| `image.tag` | `""` | empty = chart `appVersion` (`10b088d`, a commit SHA) |
+| `image.pullPolicy` | `IfNotPresent` | SHA tags are immutable; also keeps `kind load` images from being pulled |
 | `replicaCount` | `1` | each replica adds its own full offered load |
 | `target` | `http://demo-slo-demo-service:8080` | becomes `LOADGEN_TARGET` |
 | `resources` | 25m / 32Mi request, 128Mi limit | placeholder; the limit is the compose `mem_limit: 128m`, and the worst case scales with the in-flight cap |
